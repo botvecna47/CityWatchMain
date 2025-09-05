@@ -220,3 +220,4 @@ This is the base setup for CityWatch. Future development will include:
 ## 📄 License
 
 This project is licensed under the ISC License.
+Stage 1

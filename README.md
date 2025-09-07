@@ -249,3 +249,4 @@ This is Stage 2 of CityWatch with authentication system complete. Future develop
 ## 📄 License
 
 This project is licensed under the ISC License.
+Stage 1

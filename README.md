@@ -32,6 +32,8 @@ CityWatch-Web/
 - **Express.js** - Web framework
 - **PostgreSQL** - Database
 - **Prisma** - ORM and database toolkit
+- **JWT** - JSON Web Tokens for authentication
+- **bcryptjs** - Password hashing
 - **CORS** - Cross-origin resource sharing
 - **dotenv** - Environment variables
 
@@ -85,14 +87,16 @@ cd CityWatch-Web
 
 3. Create environment file:
    ```bash
-   cp .env.example .env
+   cp env.example .env
    ```
 
-4. Update the `.env` file with your database credentials:
+4. Update the `.env` file with your database credentials and JWT secrets:
    ```env
    DATABASE_URL="postgresql://username:password@localhost:5432/citywatch_db"
    PORT=5000
    NODE_ENV=development
+   JWT_SECRET="your-super-secret-jwt-key-here"
+   JWT_REFRESH_SECRET="your-super-secret-refresh-key-here"
    ```
 
 5. Generate Prisma client:
@@ -148,15 +152,39 @@ Expected response:
 }
 ```
 
+### Authentication System
+
+The authentication system includes:
+
+#### Backend API Endpoints:
+- `POST /api/auth/signup` - User registration
+- `POST /api/auth/login` - User login  
+- `GET /api/auth/me` - Get current user (protected)
+
+#### Frontend Features:
+- **Signup Form**: Username, email, password, city selection
+- **Login Form**: Email and password
+- **Protected Dashboard**: Shows user info and role
+- **JWT Token Management**: Automatic token storage and refresh
+- **Role-based Access**: Citizen, Authority, Admin roles
+
+#### Test Authentication:
+1. Open `http://localhost:5173` in your browser
+2. Click "Sign Up" to create a new account
+3. Fill in the form with valid data (password must be 8+ chars with number and special char)
+4. After signup, you'll be redirected to the dashboard
+5. The dashboard shows your username and role (always "Citizen" for new signups)
+6. Use the navbar to logout and test login functionality
+
 ### Frontend Navigation
 
 1. Open `http://localhost:5173` in your browser
 2. You should see the CityWatch homepage
 3. Navigate between pages using the navbar:
-   - Home
-   - Login
-   - Sign Up
-   - Dashboard
+   - Home (public)
+   - Login (public)
+   - Sign Up (public)
+   - Dashboard (protected - requires authentication)
 
 ## 📝 Available Scripts
 
@@ -198,15 +226,16 @@ npm run format     # Format code with Prettier
 
 ## 🚧 Next Steps
 
-This is the base setup for CityWatch. Future development will include:
+This is Stage 2 of CityWatch with authentication system complete. Future development will include:
 
-- User authentication and authorization
-- Report creation and management
+- Report creation and management system
 - Admin dashboard for authorities
 - Real-time notifications
 - File upload for report images
 - Email notifications
 - API documentation
+- Password reset functionality
+- User profile management
 
 ## 🤝 Contributing
 

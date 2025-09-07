@@ -3,6 +3,8 @@ const router = express.Router();
 
 // Import route modules here when they are created
 router.use('/auth', require('./auth'));
-// router.use('/reports', require('./reports'));
+router.use('/reports', require('./reports'));
+router.use('/cities', require('./cities'));
+router.use('/users', require('./users'));
 
 module.exports = router;

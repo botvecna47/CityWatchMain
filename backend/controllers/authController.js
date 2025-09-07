@@ -97,6 +97,13 @@ const signup = async (req, res) => {
         email: true,
         role: true,
         cityId: true,
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        },
         createdAt: true,
         updatedAt: true
       }

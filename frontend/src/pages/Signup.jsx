@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,19 +14,27 @@ const Signup = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [cities, setCities] = useState([]);
+  const [citiesLoading, setCitiesLoading] = useState(true);
 
-  const cities = [
-    { id: 'new-york', name: 'New York' },
-    { id: 'los-angeles', name: 'Los Angeles' },
-    { id: 'chicago', name: 'Chicago' },
-    { id: 'houston', name: 'Houston' },
-    { id: 'phoenix', name: 'Phoenix' },
-    { id: 'philadelphia', name: 'Philadelphia' },
-    { id: 'san-antonio', name: 'San Antonio' },
-    { id: 'san-diego', name: 'San Diego' },
-    { id: 'dallas', name: 'Dallas' },
-    { id: 'san-jose', name: 'San Jose' }
-  ];
+  // Fetch cities from API
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/api/cities');
+        if (response.ok) {
+          const data = await response.json();
+          setCities(data.cities);
+        }
+      } catch (error) {
+        console.error('Error fetching cities:', error);
+      } finally {
+        setCitiesLoading(false);
+      }
+    };
+
+    fetchCities();
+  }, []);
 
   const handleChange = (e) => {
     setFormData({

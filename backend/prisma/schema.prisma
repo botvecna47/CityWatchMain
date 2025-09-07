@@ -19,15 +19,100 @@ enum Role {
   admin
 }
 
+enum Category {
+  GARBAGE
+  ROAD
+  WATER
+  POWER
+  OTHER
+}
+
+enum Status {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model City {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  users     User[]
+  reports   Report[]
+
+  @@map("cities")
+}
+
 model User {
   id        String   @id @default(uuid())
   username  String   @unique
   email     String   @unique
   password  String
   role      Role     @default(citizen)
-  cityId    String
+  cityId    String?
+  city      City?    @relation(fields: [cityId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  // Relations
+  reports           Report[]
+  authorityUpdates  AuthorityUpdate[]
+  auditLogs         AuditLog[]
 
   @@map("users")
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  category    Category
+  status      Status   @default(OPEN)
+  cityId      String
+  city        City     @relation(fields: [cityId], references: [id])
+  authorId    String
+  author      User     @relation(fields: [authorId], references: [id])
+  deleted     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  authorityUpdates AuthorityUpdate[]
+
+  @@map("reports")
+}
+
+model AuthorityUpdate {
+  id          String   @id @default(uuid())
+  reportId    String
+  report      Report   @relation(fields: [reportId], references: [id])
+  authorityId String
+  authority   User     @relation(fields: [authorityId], references: [id])
+  text        String
+  newStatus   Status?
+  createdAt   DateTime @default(now())
+
+  @@map("authority_updates")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  actorRole  Role
+  action     String
+  targetType String
+  targetId   String
+  reason     String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  
+  // Relations
+  actor      User     @relation(fields: [actorId], references: [id])
+
+  @@map("audit_logs")
 }

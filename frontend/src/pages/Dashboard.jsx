@@ -1,11 +1,76 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, loading, logout } = useAuth();
+  const [reports, setReports] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [pagination, setPagination] = useState({});
+  const [categoryStats, setCategoryStats] = useState({});
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleLogout = () => {
     logout();
+  };
+
+  // Fetch reports
+  useEffect(() => {
+    const fetchReports = async () => {
+      if (!user) return;
+      
+      try {
+        const token = localStorage.getItem('accessToken');
+        const params = new URLSearchParams();
+        if (selectedCategory) params.append('category', selectedCategory);
+        if (searchQuery) params.append('q', searchQuery);
+        
+        const response = await fetch(`http://localhost:5000/api/reports?${params}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setReports(data.reports);
+          setPagination(data.pagination);
+          setCategoryStats(data.categoryStats || {});
+        }
+      } catch (error) {
+        console.error('Error fetching reports:', error);
+      } finally {
+        setReportsLoading(false);
+      }
+    };
+
+    fetchReports();
+  }, [user, selectedCategory, searchQuery]);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'OPEN':
+        return 'bg-red-100 text-red-800';
+      case 'IN_PROGRESS':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'RESOLVED':
+        return 'bg-green-100 text-green-800';
+      case 'CLOSED':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   if (loading) {
@@ -72,8 +137,8 @@ const Dashboard = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <h3 className="text-lg font-semibold text-gray-900">My Reports</h3>
-                <p className="text-2xl font-bold text-blue-600">0</p>
+                <h3 className="text-lg font-semibold text-gray-900">Total Reports</h3>
+                <p className="text-2xl font-bold text-blue-600">{pagination.total || 0}</p>
               </div>
             </div>
           </div>
@@ -87,7 +152,9 @@ const Dashboard = () => {
               </div>
               <div className="ml-4">
                 <h3 className="text-lg font-semibold text-gray-900">Resolved</h3>
-                <p className="text-2xl font-bold text-green-600">0</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {reports.filter(r => r.status === 'RESOLVED').length}
+                </p>
               </div>
             </div>
           </div>
@@ -101,30 +168,143 @@ const Dashboard = () => {
               </div>
               <div className="ml-4">
                 <h3 className="text-lg font-semibold text-gray-900">In Progress</h3>
-                <p className="text-2xl font-bold text-yellow-600">0</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {reports.filter(r => r.status === 'IN_PROGRESS').length}
+                </p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Recent Activity
-          </h2>
-          <div className="text-center py-8">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No reports yet</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Get started by creating your first report.
-            </p>
-            <div className="mt-6">
-              <button className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">
+              City Reports - {user.city?.name || 'Your City'}
+            </h2>
+            {user.role === 'citizen' && (
+              <Link
+                to="/reports/create"
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
                 Create Report
+              </Link>
+            )}
+          </div>
+
+          {/* Search and Filter */}
+          <div className="mb-6 space-y-4">
+            <div>
+              <input
+                type="text"
+                placeholder="Search reports..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            
+            {/* Category Tabs */}
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedCategory('')}
+                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  selectedCategory === ''
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All ({pagination.total || 0})
               </button>
+              {['GARBAGE', 'ROAD', 'WATER', 'POWER', 'OTHER'].map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    selectedCategory === category
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {category} ({categoryStats[category] || 0})
+                </button>
+              ))}
             </div>
           </div>
+
+          {reportsLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-2 text-gray-600">Loading reports...</p>
+            </div>
+          ) : reports.length === 0 ? (
+            <div className="text-center py-8">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No reports yet</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {user.role === 'citizen' 
+                  ? 'Get started by creating your first report.'
+                  : 'No reports have been submitted in your city yet.'
+                }
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reports.map((report) => (
+                <div key={report.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h3 className="text-lg font-medium text-gray-900">
+                          <Link 
+                            to={`/reports/${report.id}`}
+                            className="hover:text-blue-600 transition-colors"
+                          >
+                            {report.title}
+                          </Link>
+                        </h3>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                          {report.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <p className="text-gray-600 text-sm mb-2 line-clamp-2">
+                        {report.description}
+                      </p>
+                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <span className="flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                          </svg>
+                          {report.category}
+                        </span>
+                        <span className="flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          {report.author.username}
+                        </span>
+                        <span className="flex items-center">
+                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {formatDate(report.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <Link
+                        to={`/reports/${report.id}`}
+                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        View Details →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

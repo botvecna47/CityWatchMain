@@ -139,7 +139,7 @@ cd CityWatch-Web
 
 ### Backend Health Check
 
-Visit `http://localhost:5000/api/health` in your browser or use curl:
+Visit `http://localhost:5000\/api/health` in your browser or use curl:
 
 ```bash
 curl http://localhost:5000/api/health

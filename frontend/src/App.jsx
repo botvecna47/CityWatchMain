@@ -7,6 +7,9 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
+import CreateReport from './pages/CreateReport';
+import ReportDetail from './pages/ReportDetail';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -23,6 +26,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Dashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/reports/create" 
+              element={
+                <ProtectedRoute>
+                  <CreateReport />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/reports/:id" 
+              element={
+                <ProtectedRoute>
+                  <ReportDetail />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/settings" 
+              element={
+                <ProtectedRoute>
+                  <Settings />
                 </ProtectedRoute>
               } 
             />

@@ -1,5 +1,5 @@
 const prisma = require('../services/database');
-const { notifyReportResolved, notifyReportStatusChange, notifyReportClosed } = require('../services/notifications');
+const notificationService = require('../services/notifications');
 
 // Create a new report (Citizens only)
 const createReport = async (req, res) => {
@@ -511,10 +511,28 @@ const addAuthorityUpdate = async (req, res) => {
 
     // Send notifications
     if (newStatus === 'RESOLVED') {
-      await notifyReportResolved(result.updatedReport, req.user);
+      await notificationService.createNotification(
+        currentReport.author.id,
+        'report_resolved',
+        `Your report "${currentReport.title}" has been resolved by ${req.user.username}`,
+        id
+      );
     } else if (newStatus) {
-      await notifyReportStatusChange(result.updatedReport, newStatus, req.user);
+      await notificationService.createNotification(
+        currentReport.author.id,
+        'status_change',
+        `Your report "${currentReport.title}" status changed to ${newStatus} by ${req.user.username}`,
+        id
+      );
     }
+    
+    // Always notify about authority update
+    await notificationService.createNotification(
+      currentReport.author.id,
+      'authority_update',
+      `${req.user.username} added an update to your report "${currentReport.title}"`,
+      id
+    );
 
     res.json({
       message: 'Authority update added successfully',
@@ -580,8 +598,16 @@ const closeReport = async (req, res) => {
       }
     });
 
-    // Send notification
-    await notifyReportClosed(updatedReport);
+    // Send notification to all commenters that the report was closed
+    const commenters = await notificationService.getReportCommenters(id, userId);
+    if (commenters.length > 0) {
+      await notificationService.createNotificationsForUsers(
+        commenters,
+        'report_closed',
+        `Report "${currentReport.title}" has been closed by the author`,
+        id
+      );
+    }
 
     res.json({
       message: 'Report closed successfully',

@@ -64,6 +64,7 @@ model User {
   authorityUpdates  AuthorityUpdate[]
   auditLogs         AuditLog[]
   comments          Comment[]
+  notifications     Notification[]
 
   @@map("users")
 }
@@ -143,4 +144,17 @@ model Attachment {
   createdAt DateTime @default(now())
 
   @@map("attachments")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // "status_change", "new_comment", "report_resolved", "authority_update"
+  message   String
+  isRead    Boolean  @default(false)
+  reportId  String?  // Optional reference to the related report
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
 }

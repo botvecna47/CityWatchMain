@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationDropdown from './NotificationDropdown';
 
 const Navbar = () => {
   const location = useLocation();
@@ -59,6 +60,7 @@ const Navbar = () => {
                   Settings
                 </Link>
                 <div className="flex items-center space-x-4">
+                  <NotificationDropdown />
                   <span className="text-sm text-gray-700">
                     Welcome, <span className="font-medium">{user.username}</span>
                   </span>

@@ -8,5 +8,6 @@ router.use('/cities', require('./cities'));
 router.use('/users', require('./users'));
 router.use('/comments', require('./comments'));
 router.use('/attachments', require('./attachments'));
+router.use('/notifications', require('./notifications'));
 
 module.exports = router;

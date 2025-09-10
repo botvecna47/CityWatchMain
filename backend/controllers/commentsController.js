@@ -1,4 +1,5 @@
 const prisma = require('../services/database');
+const notificationService = require('../services/notifications');
 
 // Add a comment to a report
 const addComment = async (req, res) => {
@@ -46,9 +47,49 @@ const addComment = async (req, res) => {
             username: true,
             role: true
           }
+        },
+        report: {
+          select: {
+            id: true,
+            title: true,
+            authorId: true
+          }
         }
       }
     });
+
+    // Send notifications
+    const notifications = [];
+    
+    // Notify report author (if not the commenter)
+    if (comment.report.authorId !== userId) {
+      notifications.push(
+        notificationService.createNotification(
+          comment.report.authorId,
+          'new_comment',
+          `${comment.author.username} commented on your report "${comment.report.title}"`,
+          reportId
+        )
+      );
+    }
+    
+    // Notify other commenters (excluding the current commenter and report author)
+    const otherCommenters = await notificationService.getReportCommenters(reportId, userId);
+    const commentersToNotify = otherCommenters.filter(commenterId => commenterId !== comment.report.authorId);
+    
+    if (commentersToNotify.length > 0) {
+      notifications.push(
+        notificationService.createNotificationsForUsers(
+          commentersToNotify,
+          'new_comment',
+          `${comment.author.username} also commented on "${comment.report.title}"`,
+          reportId
+        )
+      );
+    }
+    
+    // Wait for all notifications to be sent
+    await Promise.all(notifications);
 
     res.status(201).json(comment);
   } catch (error) {

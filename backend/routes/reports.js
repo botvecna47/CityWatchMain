@@ -8,7 +8,8 @@ const {
   getReportById,
   addAuthorityUpdate,
   closeReport,
-  deleteReport
+  deleteReport,
+  getReportTimeline
 } = require('../controllers/reportsController');
 
 // All routes require authentication
@@ -22,6 +23,9 @@ router.get('/', getReports);
 
 // GET /api/reports/:id - Get single report
 router.get('/:id', getReportById);
+
+// GET /api/reports/:id/timeline - Get report timeline
+router.get('/:id/timeline', getReportTimeline);
 
 // POST /api/reports/:id/updates - Add authority update (Authority/Admin only - enforced in controller)
 router.post('/:id/updates', addAuthorityUpdate);

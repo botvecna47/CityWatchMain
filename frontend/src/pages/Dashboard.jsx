@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, makeAuthenticatedRequest } = useAuth();
   const [reports, setReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(true);
   const [pagination, setPagination] = useState({});
@@ -21,16 +21,11 @@ const Dashboard = () => {
       if (!user) return;
       
       try {
-        const token = localStorage.getItem('accessToken');
         const params = new URLSearchParams();
         if (selectedCategory) params.append('category', selectedCategory);
         if (searchQuery) params.append('q', searchQuery);
         
-        const response = await fetch(`http://localhost:5000/api/reports?${params}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const response = await makeAuthenticatedRequest(`http://localhost:5000/api/reports?${params}`);
 
         if (response.ok) {
           const data = await response.json();
@@ -40,13 +35,17 @@ const Dashboard = () => {
         }
       } catch (error) {
         console.error('Error fetching reports:', error);
+        if (error.message === 'Authentication failed') {
+          // Redirect to login if authentication fails
+          logout();
+        }
       } finally {
         setReportsLoading(false);
       }
     };
 
     fetchReports();
-  }, [user, selectedCategory, searchQuery]);
+  }, [user, selectedCategory, searchQuery, makeAuthenticatedRequest, logout]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -290,6 +289,26 @@ const Dashboard = () => {
                           </svg>
                           {formatDate(report.createdAt)}
                         </span>
+                        {report._count && (
+                          <>
+                            {report._count.comments > 0 && (
+                              <span className="flex items-center bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                                {report._count.comments}
+                              </span>
+                            )}
+                            {report._count.attachments > 0 && (
+                              <span className="flex items-center bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                                </svg>
+                                {report._count.attachments}
+                              </span>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="ml-4">

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user, login } = useAuth();
+  const { user, login, makeAuthenticatedRequest } = useAuth();
   const [cities, setCities] = useState([]);
   const [citiesLoading, setCitiesLoading] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -46,12 +46,10 @@ const Settings = () => {
     }
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/users/me/city', {
+      const response = await makeAuthenticatedRequest('http://localhost:5000/api/users/me/city', {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ cityId }),
       });
@@ -66,7 +64,10 @@ const Settings = () => {
       
       // Update user context with new city info
       const updatedUser = { ...user, ...data.user };
-      login(updatedUser, localStorage.getItem('accessToken'), localStorage.getItem('refreshToken'));
+      login(updatedUser, {
+        accessToken: localStorage.getItem('accessToken'),
+        refreshToken: localStorage.getItem('refreshToken')
+      });
       
       // Redirect to dashboard after a short delay
       setTimeout(() => {

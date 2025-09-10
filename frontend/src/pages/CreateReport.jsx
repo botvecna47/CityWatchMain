@@ -4,12 +4,13 @@ import { useAuth } from '../contexts/AuthContext';
 
 const CreateReport = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, makeAuthenticatedRequest } = useAuth();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     category: ''
   });
+  const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -27,6 +28,37 @@ const CreateReport = () => {
       [e.target.name]: e.target.value
     });
     setError(''); // Clear error when user types
+  };
+
+  const handleFileChange = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    
+    // Validate file types and sizes
+    const validFiles = selectedFiles.filter(file => {
+      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf', 'text/plain'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      
+      if (!validTypes.includes(file.type)) {
+        setError(`File ${file.name} is not a supported type. Please upload images, PDFs, or text files.`);
+        return false;
+      }
+      
+      if (file.size > maxSize) {
+        setError(`File ${file.name} is too large. Maximum size is 5MB.`);
+        return false;
+      }
+      
+      return true;
+    });
+
+    if (validFiles.length > 0) {
+      setError(''); // Clear any previous errors
+      setFiles(prev => [...prev, ...validFiles].slice(0, 5)); // Max 5 files
+    }
+  };
+
+  const removeFile = (index) => {
+    setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
@@ -54,20 +86,38 @@ const CreateReport = () => {
     }
 
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch('http://localhost:5000/api/reports', {
+      // First, create the report
+      const reportResponse = await makeAuthenticatedRequest('http://localhost:5000/api/reports', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      const reportData = await reportResponse.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create report');
+      if (!reportResponse.ok) {
+        throw new Error(reportData.error || 'Failed to create report');
+      }
+
+      // If files are selected, upload them
+      if (files.length > 0) {
+        const formDataFiles = new FormData();
+        files.forEach(file => {
+          formDataFiles.append('files', file);
+        });
+
+        const uploadResponse = await makeAuthenticatedRequest(`http://localhost:5000/api/attachments/${reportData.report.id}/upload`, {
+          method: 'POST',
+          body: formDataFiles,
+        });
+
+        if (!uploadResponse.ok) {
+          const uploadError = await uploadResponse.json();
+          console.warn('File upload failed:', uploadError.error);
+          // Don't fail the entire operation if file upload fails
+        }
       }
 
       // Redirect to dashboard
@@ -159,6 +209,48 @@ const CreateReport = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label htmlFor="files" className="block text-sm font-medium text-gray-700 mb-2">
+                  Attachments (Optional)
+                </label>
+                <input
+                  type="file"
+                  id="files"
+                  multiple
+                  accept="image/*,.pdf,.txt"
+                  onChange={handleFileChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  Upload images, PDFs, or text files (max 5 files, 5MB each)
+                </p>
+                
+                {files.length > 0 && (
+                  <div className="mt-3">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Selected Files:</h4>
+                    <div className="space-y-2">
+                      {files.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-md">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">{file.name}</span>
+                            <span className="text-xs text-gray-500">
+                              ({Math.round(file.size / 1024)} KB)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFile(index)}
+                            className="text-red-600 hover:text-red-800 text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
 

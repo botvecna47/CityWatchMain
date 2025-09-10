@@ -41,22 +41,19 @@ const updateUserCity = async (req, res) => {
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { cityId },
-      include: {
-        city: {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
-        }
-      },
       select: {
         id: true,
         username: true,
         email: true,
         role: true,
         cityId: true,
-        city: true,
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        },
         createdAt: true,
         updatedAt: true
       }
@@ -70,10 +67,10 @@ const updateUserCity = async (req, res) => {
         action: 'change_city',
         targetType: 'user',
         targetId: userId,
-        reason: `Changed city from ${currentUser.city.name} to ${city.name}`,
+        reason: `Changed city from ${currentUser.city?.name || 'None'} to ${city.name}`,
         metadata: {
           previousCityId: currentUser.cityId,
-          previousCityName: currentUser.city.name,
+          previousCityName: currentUser.city?.name || 'None',
           newCityId: cityId,
           newCityName: city.name,
           changedAt: new Date().toISOString()

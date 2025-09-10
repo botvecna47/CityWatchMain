@@ -153,6 +153,12 @@ const getReports = async (req, res) => {
               name: true,
               slug: true
             }
+          },
+          _count: {
+            select: {
+              comments: true,
+              attachments: true
+            }
           }
         },
         orderBy: {
@@ -241,6 +247,25 @@ const getReportById = async (req, res) => {
           orderBy: {
             createdAt: 'asc'
           }
+        },
+        comments: {
+          include: {
+            author: {
+              select: {
+                id: true,
+                username: true,
+                role: true
+              }
+            }
+          },
+          orderBy: {
+            createdAt: 'asc'
+          }
+        },
+        attachments: {
+          orderBy: {
+            createdAt: 'asc'
+          }
         }
       }
     });
@@ -251,7 +276,120 @@ const getReportById = async (req, res) => {
       });
     }
 
-    res.json({ report });
+    // Add full URLs to attachments
+    if (report.attachments) {
+      report.attachments = report.attachments.map(attachment => ({
+        ...attachment,
+        url: `http://localhost:5000/uploads/${attachment.filepath}`
+      }));
+    }
+
+    // For admin users, also include timeline data
+    if (userRole === 'admin') {
+      // Get all timeline events
+      const [authorityUpdates, comments, attachments] = await Promise.all([
+        prisma.authorityUpdate.findMany({
+          where: { reportId: id },
+          include: {
+            authority: {
+              select: {
+                id: true,
+                username: true,
+                role: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        }),
+        prisma.comment.findMany({
+          where: { reportId: id },
+          include: {
+            author: {
+              select: {
+                id: true,
+                username: true,
+                role: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        }),
+        prisma.attachment.findMany({
+          where: { reportId: id },
+          orderBy: { createdAt: 'asc' }
+        })
+      ]);
+
+      // Create timeline events
+      const timeline = [];
+
+      // Add report creation event
+      timeline.push({
+        id: `report-${report.id}`,
+        type: 'report_created',
+        timestamp: report.createdAt,
+        data: {
+          title: report.title,
+          description: report.description,
+          category: report.category,
+          status: report.status,
+          author: report.author
+        }
+      });
+
+      // Add authority updates
+      authorityUpdates.forEach(update => {
+        timeline.push({
+          id: `update-${update.id}`,
+          type: 'authority_update',
+          timestamp: update.createdAt,
+          data: {
+            text: update.text,
+            newStatus: update.newStatus,
+            authority: update.authority
+          }
+        });
+      });
+
+      // Add comments
+      comments.forEach(comment => {
+        timeline.push({
+          id: `comment-${comment.id}`,
+          type: 'comment',
+          timestamp: comment.createdAt,
+          data: {
+            content: comment.content,
+            author: comment.author
+          }
+        });
+      });
+
+      // Add file uploads
+      attachments.forEach(attachment => {
+        timeline.push({
+          id: `attachment-${attachment.id}`,
+          type: 'file_upload',
+          timestamp: attachment.createdAt,
+          data: {
+            filename: attachment.filename,
+            mimetype: attachment.mimetype,
+            size: attachment.size
+          }
+        });
+      });
+
+      // Sort timeline by timestamp
+      timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+      res.json({ 
+        report: {
+          ...report,
+          timeline
+        }
+      });
+    } else {
+      res.json({ report });
+    }
 
   } catch (error) {
     console.error('Get report by ID error:', error);
@@ -533,11 +671,165 @@ const deleteReport = async (req, res) => {
   }
 };
 
+// Get timeline for a report
+const getReportTimeline = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userCityId = req.user.cityId;
+    const userRole = req.user.role;
+
+    // Check if report exists and user has access
+    const report = await prisma.report.findFirst({
+      where: {
+        id,
+        deleted: false,
+        // City scoping: users can only see reports from their city unless admin
+        ...(userRole !== 'admin' ? { cityId: userCityId } : {})
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            role: true
+          }
+        },
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
+      }
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        error: 'Report not found'
+      });
+    }
+
+    // Get all timeline events
+    const [authorityUpdates, comments, attachments] = await Promise.all([
+      prisma.authorityUpdate.findMany({
+        where: { reportId: id },
+        include: {
+          authority: {
+            select: {
+              id: true,
+              username: true,
+              role: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'asc' }
+      }),
+      prisma.comment.findMany({
+        where: { reportId: id },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              role: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'asc' }
+      }),
+      prisma.attachment.findMany({
+        where: { reportId: id },
+        orderBy: { createdAt: 'asc' }
+      })
+    ]);
+
+    // Create timeline events
+    const timeline = [];
+
+    // Add report creation event
+    timeline.push({
+      id: `report-${report.id}`,
+      type: 'report_created',
+      timestamp: report.createdAt,
+      data: {
+        title: report.title,
+        description: report.description,
+        category: report.category,
+        status: report.status,
+        author: report.author
+      }
+    });
+
+    // Add authority updates
+    authorityUpdates.forEach(update => {
+      timeline.push({
+        id: `update-${update.id}`,
+        type: 'authority_update',
+        timestamp: update.createdAt,
+        data: {
+          text: update.text,
+          newStatus: update.newStatus,
+          authority: update.authority
+        }
+      });
+    });
+
+    // Add comments
+    comments.forEach(comment => {
+      timeline.push({
+        id: `comment-${comment.id}`,
+        type: 'comment',
+        timestamp: comment.createdAt,
+        data: {
+          content: comment.content,
+          author: comment.author
+        }
+      });
+    });
+
+    // Add file uploads
+    attachments.forEach(attachment => {
+      timeline.push({
+        id: `attachment-${attachment.id}`,
+        type: 'file_upload',
+        timestamp: attachment.createdAt,
+        data: {
+          filename: attachment.filename,
+          mimetype: attachment.mimetype,
+          size: attachment.size
+        }
+      });
+    });
+
+    // Sort timeline by timestamp
+    timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    res.json({
+      report: {
+        id: report.id,
+        title: report.title,
+        category: report.category,
+        status: report.status,
+        city: report.city
+      },
+      timeline
+    });
+
+  } catch (error) {
+    console.error('Get report timeline error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   createReport,
   getReports,
   getReportById,
   addAuthorityUpdate,
   closeReport,
-  deleteReport
+  deleteReport,
+  getReportTimeline
 };

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 const ReportDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, makeAuthenticatedRequest } = useAuth();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -14,20 +14,23 @@ const ReportDetail = () => {
     newStatus: ''
   });
   const [updating, setUpdating] = useState(false);
+  const [timeline, setTimeline] = useState([]);
+  const [newComment, setNewComment] = useState('');
+  const [addingComment, setAddingComment] = useState(false);
+  const [activeTab, setActiveTab] = useState('details'); // 'details' or 'timeline'
 
   useEffect(() => {
     const fetchReport = async () => {
       try {
-        const token = localStorage.getItem('accessToken');
-        const response = await fetch(`http://localhost:5000/api/reports/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        const response = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}`);
 
         if (response.ok) {
           const data = await response.json();
           setReport(data.report);
+          // Set timeline data if it's included (for admin users)
+          if (data.report.timeline) {
+            setTimeline(data.report.timeline);
+          }
         } else {
           setError('Report not found');
         }
@@ -38,8 +41,14 @@ const ReportDetail = () => {
       }
     };
 
+    const fetchTimeline = async () => {
+      // Timeline data is now included in the report data for admin users
+      // No separate API call needed
+    };
+
     fetchReport();
-  }, [id]);
+    fetchTimeline();
+  }, [id, makeAuthenticatedRequest, user]);
 
   const handleAuthorityUpdate = async (e) => {
     e.preventDefault();
@@ -47,12 +56,10 @@ const ReportDetail = () => {
 
     setUpdating(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:5000/api/reports/${id}/updates`, {
+      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}/updates`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(authorityUpdate),
       });
@@ -76,12 +83,8 @@ const ReportDetail = () => {
   const handleCloseReport = async () => {
     setUpdating(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:5000/api/reports/${id}/close`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}/close`, {
+        method: 'PATCH'
       });
 
       if (response.ok) {
@@ -108,12 +111,10 @@ const ReportDetail = () => {
 
     setUpdating(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:5000/api/reports/${id}`, {
+      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ reason: reason.trim() }),
       });
@@ -128,6 +129,73 @@ const ReportDetail = () => {
       setError('Failed to delete report');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+
+    setAddingComment(true);
+    try {
+      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/comments/${id}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content: newComment.trim() }),
+      });
+
+      if (response.ok) {
+        setNewComment('');
+        // Refresh report data to show new comment
+        const reportResponse = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}`);
+        if (reportResponse.ok) {
+          const data = await reportResponse.json();
+          setReport(data.report);
+          // Set timeline data if it's included (for admin users)
+          if (data.report.timeline) {
+            setTimeline(data.report.timeline);
+          }
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error);
+      }
+    } catch (err) {
+      setError('Failed to add comment');
+    } finally {
+      setAddingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!confirm('Are you sure you want to delete this comment?')) {
+      return;
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/comments/${commentId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        // Refresh report data to remove deleted comment
+        const reportResponse = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}`);
+        if (reportResponse.ok) {
+          const data = await reportResponse.json();
+          setReport(data.report);
+          // Set timeline data if it's included (for admin users)
+          if (data.report.timeline) {
+            setTimeline(data.report.timeline);
+          }
+        }
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error);
+      }
+    } catch (err) {
+      setError('Failed to delete comment');
     }
   };
 
@@ -154,6 +222,100 @@ const ReportDetail = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const renderTimelineEvent = (event) => {
+    const getEventIcon = (type) => {
+      switch (type) {
+        case 'report_created':
+          return '📝';
+        case 'authority_update':
+          return '👮';
+        case 'comment':
+          return '💬';
+        case 'file_upload':
+          return '📎';
+        default:
+          return '📋';
+      }
+    };
+
+    const getEventColor = (type) => {
+      switch (type) {
+        case 'report_created':
+          return 'border-blue-500 bg-blue-50';
+        case 'authority_update':
+          return 'border-green-500 bg-green-50';
+        case 'comment':
+          return 'border-gray-500 bg-gray-50';
+        case 'file_upload':
+          return 'border-purple-500 bg-purple-50';
+        default:
+          return 'border-gray-500 bg-gray-50';
+      }
+    };
+
+    return (
+      <div key={event.id} className={`border-l-4 pl-4 py-3 ${getEventColor(event.type)}`}>
+        <div className="flex items-start space-x-3">
+          <div className="flex-shrink-0">
+            <span className="text-lg">{getEventIcon(event.type)}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-900">
+                {event.type === 'report_created' && 'Report Created'}
+                {event.type === 'authority_update' && `Authority Update by ${event.data.authority?.username || 'Unknown'}`}
+                {event.type === 'comment' && `Comment by ${event.data.author?.username || 'Unknown'}`}
+                {event.type === 'file_upload' && `File Uploaded: ${event.data.filename}`}
+              </p>
+              <p className="text-xs text-gray-500">
+                {formatDate(event.timestamp)}
+              </p>
+            </div>
+            <div className="mt-1">
+              {event.type === 'report_created' && (
+                <div>
+                  <p className="text-sm text-gray-700">{event.data.description}</p>
+                  <div className="mt-2 flex space-x-2">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(event.data.status)}`}>
+                      {event.data.status.replace('_', ' ')}
+                    </span>
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {event.data.category}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {event.type === 'authority_update' && (
+                <div>
+                  <p className="text-sm text-gray-700">{event.data.text}</p>
+                  {event.data.newStatus && (
+                    <div className="mt-2">
+                      <span className="text-xs text-gray-500">Status changed to: </span>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(event.data.newStatus)}`}>
+                        {event.data.newStatus.replace('_', ' ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {event.type === 'comment' && (
+                <p className="text-sm text-gray-700">{event.data.content}</p>
+              )}
+              {event.type === 'file_upload' && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-gray-700">{event.data.filename}</span>
+                  <span className="text-xs text-gray-500">
+                    ({Math.round(event.data.size / 1024)} KB)
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const canAddAuthorityUpdate = user && (user.role === 'authority' || user.role === 'admin');
@@ -210,15 +372,47 @@ const ReportDetail = () => {
             </div>
           </div>
 
+          {/* Tabs - Only show timeline tab for admins */}
+          {user && user.role === 'admin' && (
+            <div className="mb-6">
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                  <button
+                    onClick={() => setActiveTab('details')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'details'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Report Details
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('timeline')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'timeline'
+                        ? 'border-blue-500 text-blue-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    Timeline ({timeline.length})
+                  </button>
+                </nav>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Main Content */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Description</h2>
-                <div className="prose max-w-none">
-                  <p className="text-gray-700 whitespace-pre-wrap">{report.description}</p>
-                </div>
-              </div>
+              {(activeTab === 'details' || !user || user.role !== 'admin') && (
+                <>
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Description</h2>
+                    <div className="prose max-w-none">
+                      <p className="text-gray-700 whitespace-pre-wrap">{report.description}</p>
+                    </div>
+                  </div>
 
               {/* Authority Updates */}
               {report.authorityUpdates && report.authorityUpdates.length > 0 && (
@@ -314,6 +508,132 @@ const ReportDetail = () => {
                   </button>
                 </div>
               )}
+                </>
+              )}
+
+              {activeTab === 'timeline' && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Report Timeline</h2>
+                  {timeline.length > 0 ? (
+                    <div className="space-y-4">
+                      {timeline.map(renderTimelineEvent)}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-8">No timeline events yet.</p>
+                  )}
+                </div>
+              )}
+
+              {/* Attachments Section */}
+              {report.attachments && report.attachments.length > 0 && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Attachments</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {report.attachments.map((attachment) => (
+                      <div key={attachment.id} className="border border-gray-200 rounded-lg p-4">
+                        {attachment.mimetype.startsWith('image/') ? (
+                          <div>
+                            <img
+                              src={attachment.url}
+                              alt={attachment.filename}
+                              className="w-full h-32 object-cover rounded-md mb-2"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'block';
+                              }}
+                            />
+                            <div className="w-full h-32 bg-gray-100 rounded-md mb-2 flex items-center justify-center" style={{display: 'none'}}>
+                              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                            <p className="text-sm font-medium text-gray-900 truncate">{attachment.filename}</p>
+                            <p className="text-xs text-gray-500">{Math.round(attachment.size / 1024)} KB</p>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="w-full h-32 bg-gray-100 rounded-md mb-2 flex items-center justify-center">
+                              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                            </div>
+                            <a
+                              href={attachment.url}
+                              download={attachment.filename}
+                              className="text-sm font-medium text-blue-600 hover:text-blue-800 truncate block"
+                            >
+                              {attachment.filename}
+                            </a>
+                            <p className="text-xs text-gray-500">{Math.round(attachment.size / 1024)} KB</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Comments Section */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                  Comments ({report.comments ? report.comments.length : 0})
+                </h2>
+                
+                {/* Add Comment Form */}
+                <form onSubmit={handleAddComment} className="mb-6">
+                  <div className="flex space-x-2">
+                    <textarea
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      rows={2}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Add a comment..."
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={!newComment.trim() || addingComment}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {addingComment ? 'Adding...' : 'Add Comment'}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Comments List */}
+                {report.comments && report.comments.length > 0 ? (
+                  <div className="space-y-4">
+                    {report.comments.map((comment) => (
+                      <div key={comment.id} className="border-l-4 border-gray-200 pl-4 py-2">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {comment.author.username}
+                              <span className="ml-2 text-xs text-gray-500 capitalize">
+                                ({comment.author.role})
+                              </span>
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatDate(comment.createdAt)}
+                            </p>
+                          </div>
+                          {user && user.role === 'admin' && (
+                            <button
+                              onClick={() => handleDeleteComment(comment.id)}
+                              className="text-red-600 hover:text-red-800 text-xs"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                        <p className="text-gray-700 text-sm">{comment.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No comments yet. Be the first to comment!</p>
+                )}
+              </div>
 
             </div>
 

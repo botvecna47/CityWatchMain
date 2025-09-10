@@ -6,5 +6,7 @@ router.use('/auth', require('./auth'));
 router.use('/reports', require('./reports'));
 router.use('/cities', require('./cities'));
 router.use('/users', require('./users'));
+router.use('/comments', require('./comments'));
+router.use('/attachments', require('./attachments'));
 
 module.exports = router;

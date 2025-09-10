@@ -63,6 +63,7 @@ model User {
   reports           Report[]
   authorityUpdates  AuthorityUpdate[]
   auditLogs         AuditLog[]
+  comments          Comment[]
 
   @@map("users")
 }
@@ -83,6 +84,8 @@ model Report {
   
   // Relations
   authorityUpdates AuthorityUpdate[]
+  comments         Comment[]
+  attachments      Attachment[]
 
   @@map("reports")
 }
@@ -115,4 +118,29 @@ model AuditLog {
   actor      User     @relation(fields: [actorId], references: [id])
 
   @@map("audit_logs")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  reportId  String
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  report    Report   @relation(fields: [reportId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@map("comments")
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  filename  String
+  filepath  String
+  mimetype  String
+  size      Int
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@map("attachments")
 }

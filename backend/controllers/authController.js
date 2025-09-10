@@ -194,6 +194,70 @@ const login = async (req, res) => {
   }
 };
 
+// Refresh access token
+const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        error: 'Refresh token is required'
+      });
+    }
+
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    
+    // Get user from database
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        cityId: true,
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        },
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        error: 'Invalid refresh token'
+      });
+    }
+
+    // Generate new tokens
+    const { accessToken, refreshToken: newRefreshToken } = generateTokens(user.id);
+
+    res.json({
+      accessToken,
+      refreshToken: newRefreshToken,
+      user
+    });
+
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        error: 'Invalid or expired refresh token'
+      });
+    }
+    
+    console.error('Refresh token error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
 // Get current user
 const getMe = async (req, res) => {
   try {
@@ -212,5 +276,6 @@ const getMe = async (req, res) => {
 module.exports = {
   signup,
   login,
+  refreshToken,
   getMe
 };

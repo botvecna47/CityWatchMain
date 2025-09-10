@@ -23,6 +23,39 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  const refreshAccessToken = async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/refresh', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refreshToken })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('accessToken', data.accessToken);
+        localStorage.setItem('refreshToken', data.refreshToken);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        setUser(data.user);
+        return data.accessToken;
+      } else {
+        throw new Error('Failed to refresh token');
+      }
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      logout();
+      throw error;
+    }
+  };
+
   const fetchUserData = async () => {
     const token = localStorage.getItem('accessToken');
     
@@ -41,8 +74,19 @@ export const AuthProvider = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+      } else if (response.status === 401) {
+        // Token expired, try to refresh
+        try {
+          await refreshAccessToken();
+        } catch (refreshError) {
+          // Refresh failed, clear everything
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+          setUser(null);
+        }
       } else {
-        // Token is invalid, clear it
+        // Other error, clear tokens
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
@@ -60,8 +104,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = (userData, tokens) => {
-    localStorage.setItem('accessToken', tokens.accessToken);
-    localStorage.setItem('refreshToken', tokens.refreshToken);
+    if (tokens && tokens.accessToken && tokens.refreshToken) {
+      localStorage.setItem('accessToken', tokens.accessToken);
+      localStorage.setItem('refreshToken', tokens.refreshToken);
+    }
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
   };
@@ -73,12 +119,45 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const makeAuthenticatedRequest = async (url, options = {}) => {
+    let token = localStorage.getItem('accessToken');
+    
+    const requestOptions = {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': `Bearer ${token}`
+      }
+    };
+
+    try {
+      const response = await fetch(url, requestOptions);
+      
+      if (response.status === 401) {
+        // Token expired, try to refresh
+        try {
+          token = await refreshAccessToken();
+          requestOptions.headers['Authorization'] = `Bearer ${token}`;
+          return await fetch(url, requestOptions);
+        } catch (refreshError) {
+          throw new Error('Authentication failed');
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   const value = {
     user,
     loading,
     login,
     logout,
-    fetchUserData
+    fetchUserData,
+    refreshAccessToken,
+    makeAuthenticatedRequest
   };
 
   return (

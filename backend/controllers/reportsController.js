@@ -148,16 +148,24 @@ const getReports = async (req, res) => {
       ];
     }
 
-    // Get reports with pagination
+    // Get reports with pagination - optimized query
     const [reports, total, categoryCounts] = await Promise.all([
       prisma.report.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          category: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
           author: {
             select: {
               id: true,
               username: true,
-              role: true
+              role: true,
+              profilePicture: true
             }
           },
           city: {

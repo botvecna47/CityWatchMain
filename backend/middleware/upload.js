@@ -21,18 +21,32 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter for allowed types
+// File filter for allowed types with enhanced validation
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
   const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
   
   const fileExtension = path.extname(file.originalname).toLowerCase();
   
-  if (allowedTypes.includes(file.mimetype) && allowedExtensions.includes(fileExtension)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only JPG, PNG, and PDF files are allowed.'), false);
+  // Check file extension
+  if (!allowedExtensions.includes(fileExtension)) {
+    return cb(new Error('Invalid file extension. Only JPG, PNG, and PDF files are allowed.'), false);
   }
+  
+  // Check MIME type
+  if (!allowedTypes.includes(file.mimetype)) {
+    return cb(new Error('Invalid file type. Only JPG, PNG, and PDF files are allowed.'), false);
+  }
+  
+  // Additional validation for images
+  if (file.mimetype.startsWith('image/')) {
+    // Check if it's actually an image by extension
+    if (!['.jpg', '.jpeg', '.png'].includes(fileExtension)) {
+      return cb(new Error('Invalid image file. Only JPG and PNG images are allowed.'), false);
+    }
+  }
+  
+  cb(null, true);
 };
 
 // Configure multer

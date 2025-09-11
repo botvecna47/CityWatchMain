@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { user, login, makeAuthenticatedRequest } = useAuth();
+  const { success: showSuccess, error: showError } = useToast();
   const [cities, setCities] = useState([]);
   const [citiesLoading, setCitiesLoading] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -81,8 +81,6 @@ const Settings = () => {
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setSuccess('');
 
     try {
       const formData = new FormData();
@@ -108,7 +106,7 @@ const Settings = () => {
         throw new Error(data.error || 'Failed to update profile');
       }
 
-      setSuccess('Profile updated successfully!');
+      showSuccess('Profile updated successfully!');
       
       // Update user context with new profile info
       const updatedUser = { ...user, ...data.user };
@@ -126,7 +124,7 @@ const Settings = () => {
       }, 2000);
 
     } catch (err) {
-      setError(err.message);
+      showError(err.message);
     } finally {
       setLoading(false);
     }
@@ -135,14 +133,12 @@ const Settings = () => {
   const handleCityChange = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    setSuccess('');
 
     const formData = new FormData(e.target);
     const cityId = formData.get('cityId');
 
     if (!cityId) {
-      setError('Please select a city');
+      showError('Please select a city');
       setLoading(false);
       return;
     }
@@ -162,7 +158,7 @@ const Settings = () => {
         throw new Error(data.error || 'Failed to update city');
       }
 
-      setSuccess('City updated successfully!');
+      showSuccess('City updated successfully!');
       
       // Update user context with new city info
       const updatedUser = { ...user, ...data.user };
@@ -177,7 +173,7 @@ const Settings = () => {
       }, 2000);
 
     } catch (err) {
-      setError(err.message);
+      showError(err.message);
     } finally {
       setLoading(false);
     }
@@ -212,18 +208,6 @@ const Settings = () => {
               <h2 className="text-xl font-semibold text-gray-900 mb-6">
                 Profile Settings
               </h2>
-              
-              {error && (
-                <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="mb-4 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-md">
-                  {success}
-                </div>
-              )}
 
               <form onSubmit={handleProfileUpdate}>
                 {/* Profile Picture */}

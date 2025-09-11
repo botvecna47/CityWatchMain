@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const { generalLimiter, authLimiter, apiLimiter } = require('./middleware/rateLimiter');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -9,10 +10,23 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Serve uploaded files statically
+// Rate limiting
+app.use('/api', apiLimiter);
+app.use('/api/auth', authLimiter);
+app.use(generalLimiter);
+
+// Serve uploaded files statically with cache headers
 const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
+// Cache static files for 1 hour
+const staticOptions = {
+  maxAge: '1h',
+  etag: true,
+  lastModified: true
+};
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), staticOptions));
+app.use('/assets', express.static(path.join(__dirname, 'assets'), staticOptions));
 
 // Routes
 app.use('/api', require('./routes'));

@@ -31,7 +31,15 @@ const getUsers = async (req, res) => {
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          role: true,
+          cityId: true,
+          isBanned: true,
+          createdAt: true,
+          updatedAt: true,
           city: {
             select: {
               id: true,
@@ -289,7 +297,15 @@ const getReports = async (req, res) => {
     const [reports, total] = await Promise.all([
       prisma.report.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          category: true,
+          status: true,
+          deleted: true,
+          createdAt: true,
+          updatedAt: true,
           author: {
             select: {
               id: true,

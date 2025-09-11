@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { ToastProvider } from './contexts/ToastContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
@@ -18,7 +19,8 @@ function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <Router>
+        <ToastProvider>
+          <Router>
           <div className="App">
             <Navbar />
             <Routes>
@@ -76,6 +78,7 @@ function App() {
           </Routes>
         </div>
       </Router>
+        </ToastProvider>
       </NotificationProvider>
     </AuthProvider>
   );

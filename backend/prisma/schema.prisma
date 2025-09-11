@@ -70,6 +70,11 @@ model User {
   comments          Comment[]
   notifications     Notification[]
 
+  // Indexes for performance
+  @@index([role])
+  @@index([cityId])
+  @@index([isBanned])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -92,6 +97,13 @@ model Report {
   comments         Comment[]
   attachments      Attachment[]
 
+  // Indexes for performance
+  @@index([cityId])
+  @@index([status])
+  @@index([deleted])
+  @@index([createdAt])
+  @@index([authorId])
+  @@index([category])
   @@map("reports")
 }
 
@@ -137,6 +149,10 @@ model Comment {
   report    Report   @relation(fields: [reportId], references: [id])
   createdAt DateTime @default(now())
 
+  // Indexes for performance
+  @@index([reportId])
+  @@index([authorId])
+  @@index([createdAt])
   @@map("comments")
 }
 
@@ -164,5 +180,10 @@ model Notification {
   reportId  String?  // Optional reference to the related report
   createdAt DateTime @default(now())
 
+  // Indexes for performance
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([type])
   @@map("notifications")
 }

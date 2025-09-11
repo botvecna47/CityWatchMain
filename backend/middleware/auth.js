@@ -30,6 +30,9 @@ const authMiddleware = async (req, res, next) => {
         email: true,
         role: true,
         cityId: true,
+        isBanned: true,
+        profilePicture: true,
+        bio: true,
         city: {
           select: {
             id: true,
@@ -46,6 +49,11 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ 
         error: 'Invalid token. User not found.' 
       });
+    }
+
+    // Add full URL for profile picture if it exists
+    if (user.profilePicture) {
+      user.profilePictureUrl = `/assets/profiles/${user.profilePicture}`;
     }
 
     req.user = user;

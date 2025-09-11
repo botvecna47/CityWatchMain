@@ -1,78 +1,89 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useNotifications } from '../contexts/NotificationContext';
 
 const Notifications = () => {
-  const [filter, setFilter] = useState('all'); // 'all' or 'unread'
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const { notifications, unreadCount, fetchNotifications, markAsRead } = useNotifications();
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    refreshNotifications,
+    formatNotificationTime,
+  } = useNotifications();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalNotifications, setTotalNotifications] = useState(0);
+
+  const limit = 20;
+
+  // Load notifications when page or filter changes
   useEffect(() => {
     const loadNotifications = async () => {
-      setLoading(true);
-      await fetchNotifications(50); // Load more notifications for the page
-      setLoading(false);
+      const data = await fetchNotifications(currentPage, limit, showUnreadOnly);
+      if (data) {
+        setTotalPages(data.totalPages);
+        setTotalNotifications(data.total);
+      }
     };
-    
+
     loadNotifications();
-  }, []);
-
-  const filteredNotifications = filter === 'unread' 
-    ? notifications.filter(n => !n.isRead)
-    : notifications;
-
-  const handleMarkAllAsRead = async () => {
-    await markAsRead();
-  };
+  }, [currentPage, showUnreadOnly, fetchNotifications]);
 
   const handleMarkAsRead = async (notificationId) => {
-    await markAsRead([notificationId]);
+    await markAsRead(notificationId);
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead();
+  };
+
+  const handleRefresh = async () => {
+    await refreshNotifications();
   };
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'status_change':
+      case 'REPORT_CREATED':
         return (
-          <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
             </svg>
           </div>
         );
-      case 'new_comment':
+      case 'COMMENT_ADDED':
         return (
-          <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </div>
         );
-      case 'report_resolved':
+      case 'REPORT_UPDATED':
         return (
-          <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
           </div>
         );
-      case 'authority_update':
+      case 'REPORT_CLOSED':
         return (
-          <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-            <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
         );
       default:
         return (
-          <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
-            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6v-2H4v2z" />
             </svg>
           </div>
@@ -82,90 +93,166 @@ const Notifications = () => {
 
   const getNotificationTypeLabel = (type) => {
     switch (type) {
-      case 'status_change': return 'Status Change';
-      case 'new_comment': return 'New Comment';
-      case 'report_resolved': return 'Report Resolved';
-      case 'authority_update': return 'Authority Update';
-      default: return 'Notification';
+      case 'REPORT_CREATED':
+        return 'New Report';
+      case 'COMMENT_ADDED':
+        return 'New Comment';
+      case 'REPORT_UPDATED':
+        return 'Report Updated';
+      case 'REPORT_CLOSED':
+        return 'Report Closed';
+      default:
+        return 'Notification';
     }
   };
+
+  if (loading && notifications.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow-md">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+          {/* Header */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Notifications</h1>
+                <p className="text-gray-600">
+                  {totalNotifications} total notifications
+                  {unreadCount > 0 && (
+                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      {unreadCount} unread
+                    </span>
+                  )}
+                </p>
+              </div>
+              
+              <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                >
+                  {loading ? 'Refreshing...' : 'Refresh'}
+                </button>
+                
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkAllAsRead}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
-                    Mark all as read
+                    Mark All as Read
                   </button>
                 )}
               </div>
-              
-              <div className="mt-4 flex space-x-4">
-                <button
-                  onClick={() => setFilter('all')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    filter === 'all'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  All ({notifications.length})
-                </button>
-                <button
-                  onClick={() => setFilter('unread')}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    filter === 'unread'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Unread ({unreadCount})
-                </button>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={showUnreadOnly}
+                  onChange={(e) => {
+                    setShowUnreadOnly(e.target.checked);
+                    setCurrentPage(1);
+                  }}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="ml-2 text-sm text-gray-700">Show unread only</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">Error loading notifications</h3>
+                  <div className="mt-2 text-sm text-red-700">{error}</div>
+                </div>
               </div>
             </div>
+          )}
 
-            <div className="divide-y divide-gray-200">
-              {loading ? (
-                <div className="p-8 text-center">
-                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  <p className="mt-2 text-gray-500">Loading notifications...</p>
-                </div>
-              ) : filteredNotifications.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">
-                  {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
-                </div>
-              ) : (
-                filteredNotifications.map((notification) => (
+          {/* Notifications List */}
+          <div className="bg-white rounded-lg shadow-sm">
+            {notifications.length === 0 ? (
+              <div className="p-8 text-center">
+                <img 
+                  src="http://localhost:5000/assets/icons/bell.png" 
+                  alt="No notifications" 
+                  className="mx-auto h-12 w-12 text-gray-400"
+                  onError={(e) => {
+                    // Fallback to SVG if image fails to load
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'block';
+                  }}
+                />
+                <svg className="mx-auto h-12 w-12 text-gray-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6v-2H4v2z" />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No notifications</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {showUnreadOnly ? "You're all caught up!" : "You don't have any notifications yet."}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {notifications.map((notification) => (
                   <div
                     key={notification.id}
                     className={`p-6 hover:bg-gray-50 transition-colors ${
-                      !notification.isRead ? 'bg-blue-50' : ''
+                      !notification.isRead ? 'bg-blue-50 border-l-4 border-blue-400' : ''
                     }`}
                   >
                     <div className="flex items-start space-x-4">
-                      {getNotificationIcon(notification.type)}
+                      <div className="flex-shrink-0">
+                        {getNotificationIcon(notification.type)}
+                      </div>
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-900">
-                            {getNotificationTypeLabel(notification.type)}
-                          </p>
                           <div className="flex items-center space-x-2">
-                            <span className="text-xs text-gray-500">
-                              {formatDate(notification.createdAt)}
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              {getNotificationTypeLabel(notification.type)}
                             </span>
+                            {!notification.isRead && (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                Unread
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-500">
+                              {formatNotificationTime(notification.createdAt)}
+                            </span>
+                            
                             {!notification.isRead && (
                               <button
                                 onClick={() => handleMarkAsRead(notification.id)}
-                                className="text-xs text-blue-600 hover:text-blue-800"
+                                className="text-sm text-blue-600 hover:text-blue-800 focus:outline-none"
                               >
                                 Mark as read
                               </button>
@@ -173,33 +260,74 @@ const Notifications = () => {
                           </div>
                         </div>
                         
-                        <p className="mt-1 text-sm text-gray-700">
-                          {notification.message}
-                        </p>
+                        <p className="mt-2 text-sm text-gray-900">{notification.message}</p>
                         
-                        {notification.reportId && (
-                          <div className="mt-2">
-                            <Link
-                              to={`/reports/${notification.reportId}`}
-                              className="text-sm text-blue-600 hover:text-blue-800"
+                        {notification.link && (
+                          <div className="mt-3">
+                            <a
+                              href={notification.link}
+                              className="text-sm text-blue-600 hover:text-blue-800 focus:outline-none"
                             >
-                              View Report →
-                            </Link>
+                              View details →
+                            </a>
                           </div>
                         )}
                       </div>
-                      
-                      {!notification.isRead && (
-                        <div className="flex-shrink-0">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        </div>
-                      )}
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-between">
+              <div className="flex-1 flex justify-between sm:hidden">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+              
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing page <span className="font-medium">{currentPage}</span> of{' '}
+                    <span className="font-medium">{totalPages}</span>
+                  </p>
+                </div>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

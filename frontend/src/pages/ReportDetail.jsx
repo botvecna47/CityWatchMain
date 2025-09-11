@@ -606,16 +606,31 @@ const ReportDetail = () => {
                     {report.comments.map((comment) => (
                       <div key={comment.id} className="border-l-4 border-gray-200 pl-4 py-2">
                         <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {comment.author.username}
-                              <span className="ml-2 text-xs text-gray-500 capitalize">
-                                ({comment.author.role})
-                              </span>
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {formatDate(comment.createdAt)}
-                            </p>
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+                              {comment.author.profilePicture ? (
+                                <img
+                                  src={`http://localhost:5000/assets/profiles/${comment.author.profilePicture}`}
+                                  alt="Profile"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <svg className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {comment.author.username}
+                                <span className="ml-2 text-xs text-gray-500 capitalize">
+                                  ({comment.author.role})
+                                </span>
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {formatDate(comment.createdAt)}
+                              </p>
+                            </div>
                           </div>
                           {user && user.role === 'admin' && (
                             <button

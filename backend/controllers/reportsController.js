@@ -1,5 +1,9 @@
 const prisma = require('../services/database');
-const notificationService = require('../services/notifications');
+const {
+  notifyAuthoritiesOfNewReport,
+  notifyAuthorityUpdate,
+  notifyReportClosed,
+} = require('../services/notificationService');
 
 // Create a new report (Citizens only)
 const createReport = async (req, res) => {
@@ -65,7 +69,8 @@ const createReport = async (req, res) => {
           select: {
             id: true,
             username: true,
-            role: true
+            role: true,
+            profilePicture: true
           }
         },
         city: {
@@ -77,6 +82,14 @@ const createReport = async (req, res) => {
         }
       }
     });
+
+    // Notify authorities in the city about the new report
+    try {
+      await notifyAuthoritiesOfNewReport(cityId, report.id, report.title, report.author.username);
+    } catch (notificationError) {
+      console.error('Error notifying authorities of new report:', notificationError);
+      // Don't fail the report creation if notification fails
+    }
 
     res.status(201).json({
       message: 'Report created successfully',
@@ -224,7 +237,8 @@ const getReportById = async (req, res) => {
           select: {
             id: true,
             username: true,
-            role: true
+            role: true,
+            profilePicture: true
           }
         },
         city: {
@@ -431,7 +445,8 @@ const addAuthorityUpdate = async (req, res) => {
         author: {
           select: {
             id: true,
-            username: true
+            username: true,
+            profilePicture: true
           }
         }
       }
@@ -509,32 +524,15 @@ const addAuthorityUpdate = async (req, res) => {
       return { authorityUpdate, updatedReport };
     });
 
-    // Send notifications
-    if (newStatus === 'RESOLVED') {
-      await notificationService.createNotification(
-        currentReport.author.id,
-        'report_resolved',
-        `Your report "${currentReport.title}" has been resolved by ${req.user.username}`,
-        id
-      );
-    } else if (newStatus) {
-      await notificationService.createNotification(
-        currentReport.author.id,
-        'status_change',
-        `Your report "${currentReport.title}" status changed to ${newStatus} by ${req.user.username}`,
-        id
-      );
+    // Notify report author about authority update
+    try {
+      await notifyAuthorityUpdate(id, req.user.username, currentReport.title, authorityId);
+    } catch (notificationError) {
+      console.error('Error notifying authority update:', notificationError);
+      // Don't fail the update if notification fails
     }
-    
-    // Always notify about authority update
-    await notificationService.createNotification(
-      currentReport.author.id,
-      'authority_update',
-      `${req.user.username} added an update to your report "${currentReport.title}"`,
-      id
-    );
 
-    res.json({
+    res.status(201).json({
       message: 'Authority update added successfully',
       authorityUpdate: result.authorityUpdate,
       report: result.updatedReport
@@ -548,7 +546,7 @@ const addAuthorityUpdate = async (req, res) => {
   }
 };
 
-// Close report (author only)
+// Close a report (Author only)
 const closeReport = async (req, res) => {
   try {
     const { id } = req.params;
@@ -560,32 +558,14 @@ const closeReport = async (req, res) => {
         id,
         deleted: false,
         authorId: userId // Only author can close
-      }
-    });
-
-    if (!currentReport) {
-      return res.status(404).json({
-        error: 'Report not found or you are not the author'
-      });
-    }
-
-    // Check if report is in RESOLVED status
-    if (currentReport.status !== 'RESOLVED') {
-      return res.status(409).json({
-        error: 'Can only close reports that are in RESOLVED status'
-      });
-    }
-
-    // Update report status to CLOSED
-    const updatedReport = await prisma.report.update({
-      where: { id },
-      data: { status: 'CLOSED' },
+      },
       include: {
         author: {
           select: {
             id: true,
             username: true,
-            role: true
+            role: true,
+            profilePicture: true
           }
         },
         city: {
@@ -598,15 +578,48 @@ const closeReport = async (req, res) => {
       }
     });
 
-    // Send notification to all commenters that the report was closed
-    const commenters = await notificationService.getReportCommenters(id, userId);
-    if (commenters.length > 0) {
-      await notificationService.createNotificationsForUsers(
-        commenters,
-        'report_closed',
-        `Report "${currentReport.title}" has been closed by the author`,
-        id
-      );
+    if (!currentReport) {
+      return res.status(404).json({
+        error: 'Report not found or you are not authorized to close it'
+      });
+    }
+
+    // Only RESOLVED reports can be closed
+    if (currentReport.status !== 'RESOLVED') {
+      return res.status(409).json({
+        error: 'Only resolved reports can be closed'
+      });
+    }
+
+    // Update report status to CLOSED
+    const updatedReport = await prisma.report.update({
+      where: { id },
+      data: { status: 'CLOSED' },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            role: true,
+            profilePicture: true
+          }
+        },
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
+      }
+    });
+
+    // Notify report author that their report was closed
+    try {
+      await notifyReportClosed(id, currentReport.title, userId);
+    } catch (notificationError) {
+      console.error('Error notifying report closed:', notificationError);
+      // Don't fail the close if notification fails
     }
 
     res.json({
@@ -622,7 +635,7 @@ const closeReport = async (req, res) => {
   }
 };
 
-// Delete report (admin only)
+// Delete a report (Admin only)
 const deleteReport = async (req, res) => {
   try {
     const { id } = req.params;
@@ -631,7 +644,7 @@ const deleteReport = async (req, res) => {
 
     if (!reason || reason.trim().length === 0) {
       return res.status(400).json({
-        error: 'Deletion reason is required for audit purposes'
+        error: 'Reason for deletion is required'
       });
     }
 
@@ -644,7 +657,17 @@ const deleteReport = async (req, res) => {
       include: {
         author: {
           select: {
-            username: true
+            id: true,
+            username: true,
+            role: true,
+            profilePicture: true
+          }
+        },
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
           }
         }
       }
@@ -656,37 +679,46 @@ const deleteReport = async (req, res) => {
       });
     }
 
-    // Soft delete report and create audit log
-    const result = await prisma.$transaction(async (tx) => {
-      // Soft delete the report
-      const deletedReport = await tx.report.update({
-        where: { id },
-        data: { deleted: true }
-      });
-
-      // Create audit log entry
-      const auditLog = await tx.auditLog.create({
-        data: {
-          actorId: adminId,
-          actorRole: req.user.role,
-          action: 'admin_delete_report',
-          targetType: 'report',
-          targetId: id,
-          reason: reason.trim(),
-          metadata: {
-            reportTitle: currentReport.title,
-            originalAuthor: currentReport.author.username,
-            deletedAt: new Date().toISOString()
+    // Soft delete the report
+    const deletedReport = await prisma.report.update({
+      where: { id },
+      data: { deleted: true },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            role: true,
+            profilePicture: true
+          }
+        },
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
           }
         }
-      });
+      }
+    });
 
-      return { deletedReport, auditLog };
+    // Create audit log entry
+    await prisma.auditLog.create({
+      data: {
+        actorId: currentReport.authorId,
+        actorRole: currentReport.author.role,
+        action: 'admin_delete_report',
+        actionType: 'REPORT_DELETE',
+        targetType: 'report',
+        targetId: id,
+        performedById: adminId,
+        reason: reason.trim()
+      }
     });
 
     res.json({
       message: 'Report deleted successfully',
-      auditLog: result.auditLog
+      report: deletedReport
     });
 
   } catch (error) {
@@ -697,27 +729,28 @@ const deleteReport = async (req, res) => {
   }
 };
 
-// Get timeline for a report
+// Get report timeline
 const getReportTimeline = async (req, res) => {
   try {
     const { id } = req.params;
-    const userCityId = req.user.cityId;
+    const userId = req.user.id;
     const userRole = req.user.role;
 
-    // Check if report exists and user has access
+    // Get report with basic info
     const report = await prisma.report.findFirst({
       where: {
         id,
         deleted: false,
-        // City scoping: users can only see reports from their city unless admin
-        ...(userRole !== 'admin' ? { cityId: userCityId } : {})
+        // City scoping: users can only see reports from their city (unless admin)
+        ...(userRole !== 'admin' && { cityId: req.user.cityId })
       },
       include: {
         author: {
           select: {
             id: true,
             username: true,
-            role: true
+            role: true,
+            profilePicture: true
           }
         },
         city: {
@@ -737,7 +770,7 @@ const getReportTimeline = async (req, res) => {
     }
 
     // Get all timeline events
-    const [authorityUpdates, comments, attachments] = await Promise.all([
+    const [authorityUpdates, comments] = await Promise.all([
       prisma.authorityUpdate.findMany({
         where: { reportId: id },
         include: {
@@ -745,7 +778,8 @@ const getReportTimeline = async (req, res) => {
             select: {
               id: true,
               username: true,
-              role: true
+              role: true,
+              profilePicture: true
             }
           }
         },
@@ -758,88 +792,62 @@ const getReportTimeline = async (req, res) => {
             select: {
               id: true,
               username: true,
-              role: true
+              role: true,
+              profilePicture: true
             }
           }
         },
         orderBy: { createdAt: 'asc' }
-      }),
-      prisma.attachment.findMany({
-        where: { reportId: id },
-        orderBy: { createdAt: 'asc' }
       })
     ]);
 
-    // Create timeline events
-    const timeline = [];
-
-    // Add report creation event
-    timeline.push({
-      id: `report-${report.id}`,
-      type: 'report_created',
-      timestamp: report.createdAt,
-      data: {
-        title: report.title,
-        description: report.description,
-        category: report.category,
-        status: report.status,
-        author: report.author
-      }
-    });
-
-    // Add authority updates
-    authorityUpdates.forEach(update => {
-      timeline.push({
-        id: `update-${update.id}`,
+    // Combine and sort timeline events
+    const timeline = [
+      {
+        type: 'report_created',
+        timestamp: report.createdAt,
+        data: {
+          report: {
+            id: report.id,
+            title: report.title,
+            description: report.description,
+            category: report.category,
+            status: report.status
+          },
+          author: report.author
+        }
+      },
+      ...authorityUpdates.map(update => ({
         type: 'authority_update',
         timestamp: update.createdAt,
         data: {
-          text: update.text,
-          newStatus: update.newStatus,
+          update: {
+            id: update.id,
+            text: update.text,
+            newStatus: update.newStatus
+          },
           authority: update.authority
         }
-      });
-    });
-
-    // Add comments
-    comments.forEach(comment => {
-      timeline.push({
-        id: `comment-${comment.id}`,
+      })),
+      ...comments.map(comment => ({
         type: 'comment',
         timestamp: comment.createdAt,
         data: {
-          content: comment.content,
+          comment: {
+            id: comment.id,
+            content: comment.content
+          },
           author: comment.author
         }
-      });
-    });
-
-    // Add file uploads
-    attachments.forEach(attachment => {
-      timeline.push({
-        id: `attachment-${attachment.id}`,
-        type: 'file_upload',
-        timestamp: attachment.createdAt,
-        data: {
-          filename: attachment.filename,
-          mimetype: attachment.mimetype,
-          size: attachment.size
-        }
-      });
-    });
-
-    // Sort timeline by timestamp
-    timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      }))
+    ].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     res.json({
-      report: {
-        id: report.id,
-        title: report.title,
-        category: report.category,
-        status: report.status,
-        city: report.city
-      },
-      timeline
+      success: true,
+      data: {
+        report,
+        timeline
+      }
     });
 
   } catch (error) {

@@ -12,6 +12,7 @@ app.use(express.json());
 // Serve uploaded files statically
 const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 // Routes
 app.use('/api', require('./routes'));

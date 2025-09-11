@@ -1,5 +1,5 @@
 const prisma = require('../services/database');
-const notificationService = require('../services/notifications');
+const { notifyCommentAdded } = require('../services/notificationService');
 
 // Add a comment to a report
 const addComment = async (req, res) => {
@@ -45,7 +45,8 @@ const addComment = async (req, res) => {
           select: {
             id: true,
             username: true,
-            role: true
+            role: true,
+            profilePicture: true
           }
         },
         report: {
@@ -58,38 +59,13 @@ const addComment = async (req, res) => {
       }
     });
 
-    // Send notifications
-    const notifications = [];
-    
-    // Notify report author (if not the commenter)
-    if (comment.report.authorId !== userId) {
-      notifications.push(
-        notificationService.createNotification(
-          comment.report.authorId,
-          'new_comment',
-          `${comment.author.username} commented on your report "${comment.report.title}"`,
-          reportId
-        )
-      );
+    // Notify report author and other commenters about the new comment
+    try {
+      await notifyCommentAdded(reportId, comment.author.username, comment.report.title, userId);
+    } catch (notificationError) {
+      console.error('Error notifying comment added:', notificationError);
+      // Don't fail the comment creation if notification fails
     }
-    
-    // Notify other commenters (excluding the current commenter and report author)
-    const otherCommenters = await notificationService.getReportCommenters(reportId, userId);
-    const commentersToNotify = otherCommenters.filter(commenterId => commenterId !== comment.report.authorId);
-    
-    if (commentersToNotify.length > 0) {
-      notifications.push(
-        notificationService.createNotificationsForUsers(
-          commentersToNotify,
-          'new_comment',
-          `${comment.author.username} also commented on "${comment.report.title}"`,
-          reportId
-        )
-      );
-    }
-    
-    // Wait for all notifications to be sent
-    await Promise.all(notifications);
 
     res.status(201).json(comment);
   } catch (error) {
@@ -132,7 +108,8 @@ const getComments = async (req, res) => {
             select: {
               id: true,
               username: true,
-              role: true
+              role: true,
+              profilePicture: true
             }
           }
         },

@@ -5,7 +5,7 @@ import { useNotifications } from '../contexts/NotificationContext';
 const NotificationDropdown = () => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
-  const { notifications, unreadCount, markAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, navigateToNotification, formatNotificationTime } = useNotifications();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -22,47 +22,38 @@ const NotificationDropdown = () => {
   }, []);
 
   const handleNotificationClick = async (notification) => {
-    if (!notification.isRead) {
-      await markAsRead([notification.id]);
-    }
+    navigateToNotification(notification);
     setIsOpen(false);
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    return `${Math.floor(diffInMinutes / 1440)}d ago`;
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead();
   };
 
   const getNotificationIcon = (type) => {
     switch (type) {
-      case 'status_change':
+      case 'REPORT_CREATED':
         return (
           <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
         );
-      case 'new_comment':
+      case 'COMMENT_ADDED':
         return (
           <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         );
-      case 'report_resolved':
-        return (
-          <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        );
-      case 'authority_update':
+      case 'REPORT_UPDATED':
         return (
           <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        );
+      case 'REPORT_CLOSED':
+        return (
+          <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         );
       default:
@@ -80,7 +71,17 @@ const NotificationDropdown = () => {
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-700 hover:text-blue-600 focus:outline-none focus:text-blue-600 transition-colors"
       >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <img 
+          src="http://localhost:5000/assets/icons/bell.png" 
+          alt="Notifications" 
+          className="w-6 h-6"
+          onError={(e) => {
+            // Fallback to SVG if image fails to load
+            e.target.style.display = 'none';
+            e.target.nextSibling.style.display = 'block';
+          }}
+        />
+        <svg className="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6v-2H4v2z" />
         </svg>
         {unreadCount > 0 && (
@@ -97,7 +98,7 @@ const NotificationDropdown = () => {
               <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
               {unreadCount > 0 && (
                 <button
-                  onClick={() => markAsRead()}
+                  onClick={handleMarkAllAsRead}
                   className="text-sm text-blue-600 hover:text-blue-800"
                 >
                   Mark all as read
@@ -127,7 +128,7 @@ const NotificationDropdown = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-900">{notification.message}</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        {formatDate(notification.createdAt)}
+                        {formatNotificationTime(notification.createdAt)}
                       </p>
                     </div>
                     {!notification.isRead && (

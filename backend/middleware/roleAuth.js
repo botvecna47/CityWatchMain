@@ -1,29 +1,41 @@
-const roleAuth = (allowedRoles) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
+const requireAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
 
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        error: 'Insufficient permissions',
-        required: allowedRoles,
-        current: req.user.role
-      });
-    }
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin access required' });
+  }
 
-    next();
-  };
+  next();
 };
 
-// Specific role middleware functions
-const requireCitizen = roleAuth(['citizen']);
-const requireAuthority = roleAuth(['authority', 'admin']);
-const requireAdmin = roleAuth(['admin']);
+const requireAuthority = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (!['authority', 'admin'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Authority or admin access required' });
+  }
+
+  next();
+};
+
+const requireCitizen = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
+  if (req.user.role !== 'citizen') {
+    return res.status(403).json({ error: 'Citizen access required' });
+  }
+
+  next();
+};
 
 module.exports = {
-  roleAuth,
-  requireCitizen,
+  requireAdmin,
   requireAuthority,
-  requireAdmin
+  requireCitizen
 };

@@ -12,6 +12,7 @@ import CreateReport from './pages/CreateReport';
 import ReportDetail from './pages/ReportDetail';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -61,6 +62,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Notifications />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/dashboard" 
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
                 </ProtectedRoute>
               } 
             />

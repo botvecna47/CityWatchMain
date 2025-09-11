@@ -105,17 +105,42 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Dashboard
-              </h1>
-              <p className="text-gray-600">
-                Welcome, <span className="font-semibold">{user.username}</span>!
-              </p>
-              <div className="mt-2">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                  Role: {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                </span>
+            <div className="flex items-center space-x-4">
+              <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                {user.profilePictureUrl ? (
+                  <img
+                    src={`http://localhost:5000${user.profilePictureUrl}`}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <svg className="w-8 h-8 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  Dashboard
+                </h1>
+                <p className="text-gray-600">
+                  Welcome, <span className="font-semibold">{user.username}</span>!
+                </p>
+                {user.bio && (
+                  <p className="text-sm text-gray-500 mt-1 max-w-md">
+                    {user.bio}
+                  </p>
+                )}
+                <div className="mt-2 flex items-center space-x-2">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
+                    Role: {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                  </span>
+                  {user.city && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      {user.city.name}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <button
@@ -278,9 +303,19 @@ const Dashboard = () => {
                           {report.category}
                         </span>
                         <span className="flex items-center">
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
+                          <div className="w-4 h-4 mr-1 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                            {report.author.profilePicture ? (
+                              <img
+                                src={`http://localhost:5000/assets/profiles/${report.author.profilePicture}`}
+                                alt="Profile"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <svg className="w-3 h-3 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
                           {report.author.username}
                         </span>
                         <span className="flex items-center">

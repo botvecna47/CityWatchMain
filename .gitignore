@@ -60,3 +60,8 @@ jspm_packages/
 
 # Prisma
 prisma/migrations/
+
+# Assets - exclude user-generated content but keep system icons
+backend/assets/profiles/
+backend/assets/reports/
+# Keep backend/assets/icons/ for system icons like bell.png

@@ -95,7 +95,7 @@ const getAttachments = async (req, res) => {
     // Add full URLs to attachments
     const attachmentsWithUrls = attachments.map(attachment => ({
       ...attachment,
-      url: `http://localhost:5000/uploads/${attachment.filepath}`
+      url: `http://localhost:5000/assets/reports/${attachment.filepath}`
     }));
 
     res.json(attachmentsWithUrls);
@@ -131,7 +131,7 @@ const getAttachment = async (req, res) => {
     }
 
     // Construct full file path
-    const fullFilePath = path.join(__dirname, '../uploads', attachment.filepath);
+    const fullFilePath = path.join(__dirname, '../assets/reports', attachment.filepath);
     
     // Check if file exists
     if (!fs.existsSync(fullFilePath)) {
@@ -176,7 +176,7 @@ const deleteAttachment = async (req, res) => {
     }
 
     // Delete file from filesystem
-    const fullFilePath = path.join(__dirname, '../uploads', attachment.filepath);
+    const fullFilePath = path.join(__dirname, '../assets/reports', attachment.filepath);
     if (fs.existsSync(fullFilePath)) {
       fs.unlinkSync(fullFilePath);
     }

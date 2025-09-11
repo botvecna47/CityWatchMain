@@ -1,18 +1,26 @@
 const express = require('express');
 const router = express.Router();
-const { getNotifications, markAsRead, getUnreadCount } = require('../controllers/notificationsController');
-const authMiddleware = require('../middleware/auth');
+const authenticateToken = require('../middleware/auth');
+const {
+  getNotifications,
+  markAsRead,
+  markAllAsRead,
+  getUnreadNotificationCount,
+} = require('../controllers/notificationController');
 
 // All notification routes require authentication
-router.use(authMiddleware);
+router.use(authenticateToken);
 
-// GET /api/notifications - Get user's notifications
+// GET /api/notifications - Get user's notifications with pagination
 router.get('/', getNotifications);
 
-// POST /api/notifications/mark-read - Mark notifications as read
-router.post('/mark-read', markAsRead);
-
 // GET /api/notifications/unread-count - Get unread notification count
-router.get('/unread-count', getUnreadCount);
+router.get('/unread-count', getUnreadNotificationCount);
+
+// PATCH /api/notifications/:id/read - Mark a single notification as read
+router.patch('/:id/read', markAsRead);
+
+// PATCH /api/notifications/read-all - Mark all notifications as read
+router.patch('/read-all', markAllAsRead);
 
 module.exports = router;

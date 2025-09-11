@@ -156,6 +156,13 @@ const login = async (req, res) => {
       });
     }
 
+    // Check if user is banned
+    if (user.isBanned) {
+      return res.status(403).json({
+        error: 'Account banned'
+      });
+    }
+
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import LocationPicker from '../components/LocationPicker';
 
 const CreateReport = () => {
   const navigate = useNavigate();
@@ -16,6 +17,8 @@ const CreateReport = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [locationLoading, setLocationLoading] = useState(false);
+  const [locationMethod, setLocationMethod] = useState('current'); // 'current' or 'manual'
+  const [showMap, setShowMap] = useState(false);
 
   const categories = [
     'GARBAGE',
@@ -109,6 +112,14 @@ const CreateReport = () => {
     );
   };
 
+  const handleLocationSelect = (lat, lng) => {
+    setFormData({
+      ...formData,
+      latitude: lat.toString(),
+      longitude: lng.toString()
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -123,6 +134,13 @@ const CreateReport = () => {
 
     if (formData.title.trim().length < 5) {
       setError('Title must be at least 5 characters long');
+      setLoading(false);
+      return;
+    }
+
+    // Location validation
+    if (!formData.latitude || !formData.longitude) {
+      setError('Location is required. Please select a location for your report.');
       setLoading(false);
       return;
     }
@@ -261,68 +279,155 @@ const CreateReport = () => {
 
               {/* Location Section */}
               <div className="border-t pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Location (Optional)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mb-2">
-                      Latitude
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Location *</h3>
+                
+                {/* Location Method Selection */}
+                <div className="mb-4">
+                  <div className="space-y-3">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="locationMethod"
+                        value="current"
+                        checked={locationMethod === 'current'}
+                        onChange={(e) => setLocationMethod(e.target.value)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="ml-2 text-sm font-medium text-gray-700">Use my current location</span>
                     </label>
-                    <input
-                      type="number"
-                      id="latitude"
-                      name="latitude"
-                      step="any"
-                      placeholder="e.g., 40.7128"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={formData.latitude}
-                      onChange={handleChange}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mb-2">
-                      Longitude
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="locationMethod"
+                        value="manual"
+                        checked={locationMethod === 'manual'}
+                        onChange={(e) => setLocationMethod(e.target.value)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="ml-2 text-sm font-medium text-gray-700">Pick location manually</span>
                     </label>
-                    <input
-                      type="number"
-                      id="longitude"
-                      name="longitude"
-                      step="any"
-                      placeholder="e.g., -74.0060"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={formData.longitude}
-                      onChange={handleChange}
-                    />
                   </div>
                 </div>
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={getCurrentLocation}
-                    disabled={locationLoading}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                  >
-                    {locationLoading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Getting Location...
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                        Use Current Location
-                      </>
+
+                {/* Current Location Option */}
+                {locationMethod === 'current' && (
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      onClick={getCurrentLocation}
+                      disabled={locationLoading}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    >
+                      {locationLoading ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Getting Location...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Get Current Location
+                        </>
+                      )}
+                    </button>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Use your device's GPS to automatically set the location
+                    </p>
+                  </div>
+                )}
+
+                {/* Manual Location Option */}
+                {locationMethod === 'manual' && (
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setShowMap(!showMap)}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                      </svg>
+                      {showMap ? 'Hide Map' : 'Show Map'}
+                    </button>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Click on the map to select a location
+                    </p>
+                    
+                    {/* Map Picker */}
+                    {showMap && (
+                      <div className="mt-4">
+                        <LocationPicker
+                          onLocationSelect={handleLocationSelect}
+                          initialLocation={
+                            formData.latitude && formData.longitude
+                              ? { lat: parseFloat(formData.latitude), lng: parseFloat(formData.longitude) }
+                              : null
+                          }
+                          height="300px"
+                        />
+                      </div>
                     )}
-                  </button>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Add your current location to help others find this issue on the map
-                  </p>
-                </div>
+                  </div>
+                )}
+
+                {/* Location Display */}
+                {(formData.latitude && formData.longitude) && (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-green-800">Location Selected</p>
+                        <p className="text-xs text-green-600">
+                          {formData.latitude}, {formData.longitude}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Manual Coordinate Input */}
+                {locationMethod === 'manual' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="latitude" className="block text-sm font-medium text-gray-700 mb-2">
+                        Latitude
+                      </label>
+                      <input
+                        type="number"
+                        id="latitude"
+                        name="latitude"
+                        step="any"
+                        placeholder="e.g., 40.7128"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        value={formData.latitude}
+                        onChange={handleChange}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mb-2">
+                        Longitude
+                      </label>
+                      <input
+                        type="number"
+                        id="longitude"
+                        name="longitude"
+                        step="any"
+                        placeholder="e.g., -74.0060"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        value={formData.longitude}
+                        onChange={handleChange}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

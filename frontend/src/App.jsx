@@ -11,6 +11,7 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import CreateReport from './pages/CreateReport';
 import ReportDetail from './pages/ReportDetail';
+import ReportsPage from './pages/ReportsPage';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import AdminDashboard from './pages/AdminDashboard';
@@ -42,6 +43,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CreateReport />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/reports" 
+              element={
+                <ProtectedRoute>
+                  <ReportsPage />
                 </ProtectedRoute>
               } 
             />

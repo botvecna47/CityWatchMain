@@ -1,4 +1,5 @@
 const prisma = require('../services/database');
+const cacheService = require('../services/cacheService');
 const {
   notifyAuthoritiesOfNewReport,
   notifyAuthorityUpdate,
@@ -33,6 +34,13 @@ const createReport = async (req, res) => {
       });
     }
 
+    // Location is required
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        error: 'Location is required. Please provide latitude and longitude coordinates.'
+      });
+    }
+
     // Validate title length
     if (title.trim().length < 5) {
       return res.status(400).json({
@@ -55,32 +63,27 @@ const createReport = async (req, res) => {
       });
     }
 
-    // Parse location coordinates if provided
-    let parsedLatitude = null;
-    let parsedLongitude = null;
+    // Parse and validate location coordinates
+    const parsedLatitude = parseFloat(latitude);
+    const parsedLongitude = parseFloat(longitude);
     
-    if (latitude && longitude) {
-      parsedLatitude = parseFloat(latitude);
-      parsedLongitude = parseFloat(longitude);
-      
-      // Validate coordinates
-      if (isNaN(parsedLatitude) || isNaN(parsedLongitude)) {
-        return res.status(400).json({
-          error: 'Invalid latitude or longitude values'
-        });
-      }
-      
-      if (parsedLatitude < -90 || parsedLatitude > 90) {
-        return res.status(400).json({
-          error: 'Latitude must be between -90 and 90 degrees'
-        });
-      }
-      
-      if (parsedLongitude < -180 || parsedLongitude > 180) {
-        return res.status(400).json({
-          error: 'Longitude must be between -180 and 180 degrees'
-        });
-      }
+    // Validate coordinates
+    if (isNaN(parsedLatitude) || isNaN(parsedLongitude)) {
+      return res.status(400).json({
+        error: 'Invalid latitude or longitude values'
+      });
+    }
+    
+    if (parsedLatitude < -90 || parsedLatitude > 90) {
+      return res.status(400).json({
+        error: 'Latitude must be between -90 and 90 degrees'
+      });
+    }
+    
+    if (parsedLongitude < -180 || parsedLongitude > 180) {
+      return res.status(400).json({
+        error: 'Longitude must be between -180 and 180 degrees'
+      });
     }
 
     // Create report
@@ -121,6 +124,9 @@ const createReport = async (req, res) => {
       // Don't fail the report creation if notification fails
     }
 
+    // Invalidate cache for this city
+    cacheService.clear();
+
     res.status(201).json({
       message: 'Report created successfully',
       report
@@ -136,17 +142,45 @@ const createReport = async (req, res) => {
 
 // Get reports list (filtered by user's city)
 const getReports = async (req, res) => {
+  const startTime = Date.now();
+  console.time('getReports');
+  
   try {
     const userCityId = req.user.cityId;
     const { category, status, page = 1, limit = 20, q } = req.query;
+    
+    // Enforce pagination limits
+    const maxLimit = 100;
+    const minLimit = 1;
+    const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, minLimit), maxLimit);
+    const parsedPage = Math.max(parseInt(page) || 1, 1);
+
+    // Check cache for GET requests (no search query)
+    if (!q) {
+      const cacheKey = cacheService.generateKey('reports', {
+        userCityId,
+        category,
+        status,
+        page: parsedPage,
+        limit: parsedLimit
+      });
+      
+      const cachedResult = cacheService.get(cacheKey);
+      if (cachedResult) {
+        const duration = Date.now() - startTime;
+        console.timeEnd('getReports');
+        console.log(`getReports served from cache in ${duration}ms - page:${parsedPage}, limit:${parsedLimit}`);
+        return res.json(cachedResult);
+      }
+    }
 
     // If user has no city, return empty results
     if (!userCityId) {
       return res.json({
         reports: [],
         pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
+          page: parsedPage,
+          limit: parsedLimit,
           total: 0,
           pages: 0
         },
@@ -154,8 +188,8 @@ const getReports = async (req, res) => {
       });
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-    const take = parseInt(limit);
+    const skip = (parsedPage - 1) * parsedLimit;
+    const take = parsedLimit;
 
     // Build where clause
     const where = {
@@ -237,19 +271,39 @@ const getReports = async (req, res) => {
       return acc;
     }, {});
 
-    res.json({
+    const result = {
       reports,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: parsedPage,
+        limit: parsedLimit,
         total,
-        pages: Math.ceil(total / parseInt(limit))
+        pages: Math.ceil(total / parsedLimit)
       },
       categoryStats
-    });
+    };
+
+    // Cache the result for GET requests (no search query)
+    if (!q) {
+      const cacheKey = cacheService.generateKey('reports', {
+        userCityId,
+        category,
+        status,
+        page: parsedPage,
+        limit: parsedLimit
+      });
+      cacheService.set(cacheKey, result, 30 * 1000); // 30 seconds TTL
+    }
+
+    const duration = Date.now() - startTime;
+    console.timeEnd('getReports');
+    console.log(`getReports completed in ${duration}ms - page:${parsedPage}, limit:${parsedLimit}, total:${total}`);
+
+    res.json(result);
 
   } catch (error) {
-    console.error('Get reports error:', error);
+    const duration = Date.now() - startTime;
+    console.timeEnd('getReports');
+    console.error(`Get reports error after ${duration}ms:`, error);
     res.status(500).json({
       error: 'Internal server error'
     });
@@ -954,8 +1008,8 @@ const getNearbyReports = async (req, res) => {
           select: {
             id: true,
             filename: true,
-            url: true,
-            mimeType: true
+            filepath: true,
+            mimetype: true
           }
         },
         comments: {

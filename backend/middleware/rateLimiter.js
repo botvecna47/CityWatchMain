@@ -3,7 +3,7 @@ const rateLimit = require('express-rate-limit');
 // General rate limiter for public routes
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 500, // limit each IP to 500 requests per windowMs (increased for development)
   message: {
     error: 'Too many requests from this IP, please try again later.'
   },
@@ -26,9 +26,31 @@ const authLimiter = rateLimit({
 // Moderate rate limiter for API routes
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // limit each IP to 200 requests per windowMs
+  max: 1000, // limit each IP to 1000 requests per windowMs (increased for development)
   message: {
     error: 'Too many API requests, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Heavy GET routes (reports, comments, search) - more restrictive
+const heavyGetLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 60, // 60 requests per minute for heavy GET operations
+  message: {
+    error: 'Too many requests for this endpoint, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// POST routes (create, update, delete) - stricter limits
+const postLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 20, // 20 POST requests per minute
+  message: {
+    error: 'Too many requests for this endpoint, please try again later.'
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -37,7 +59,7 @@ const apiLimiter = rateLimit({
 // File upload rate limiter
 const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 uploads per windowMs
+  max: 50, // limit each IP to 50 uploads per windowMs (increased for development)
   message: {
     error: 'Too many file uploads, please try again later.'
   },
@@ -49,5 +71,7 @@ module.exports = {
   generalLimiter,
   authLimiter,
   apiLimiter,
+  heavyGetLimiter,
+  postLimiter,
   uploadLimiter
 };

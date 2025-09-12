@@ -76,6 +76,9 @@ const addComment = async (req, res) => {
 
 // Get comments for a report
 const getComments = async (req, res) => {
+  const startTime = Date.now();
+  console.time('getComments');
+  
   try {
     const { reportId } = req.params;
 
@@ -96,9 +99,11 @@ const getComments = async (req, res) => {
     }
 
     // Get comments with pagination
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const skip = (page - 1) * limit;
+    const maxLimit = 100;
+    const minLimit = 1;
+    const parsedLimit = Math.min(Math.max(parseInt(req.query.limit) || 20, minLimit), maxLimit);
+    const parsedPage = Math.max(parseInt(req.query.page) || 1, 1);
+    const skip = (parsedPage - 1) * parsedLimit;
 
     const [comments, total] = await Promise.all([
       prisma.comment.findMany({
@@ -115,22 +120,28 @@ const getComments = async (req, res) => {
         },
         orderBy: { createdAt: 'asc' },
         skip,
-        take: limit
+        take: parsedLimit
       }),
       prisma.comment.count({ where: { reportId } })
     ]);
 
+    const duration = Date.now() - startTime;
+    console.timeEnd('getComments');
+    console.log(`getComments completed in ${duration}ms - reportId:${reportId}, page:${parsedPage}, limit:${parsedLimit}, total:${total}`);
+
     res.json({
       comments,
       pagination: {
-        page,
-        limit,
+        page: parsedPage,
+        limit: parsedLimit,
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / parsedLimit)
       }
     });
   } catch (error) {
-    console.error('Get comments error:', error);
+    const duration = Date.now() - startTime;
+    console.timeEnd('getComments');
+    console.error(`Get comments error after ${duration}ms:`, error);
     res.status(500).json({ error: 'Failed to fetch comments' });
   }
 };

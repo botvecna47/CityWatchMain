@@ -50,6 +50,16 @@ const Navbar = () => {
                   Dashboard
                 </Link>
                 <Link
+                  to="/reports"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive('/reports') 
+                      ? 'text-blue-600 bg-blue-50' 
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Reports
+                </Link>
+                <Link
                   to="/settings"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive('/settings') 
@@ -182,6 +192,16 @@ const Navbar = () => {
                   }`}
                 >
                   Dashboard
+                </Link>
+                <Link
+                  to="/reports"
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    isActive('/reports') 
+                      ? 'text-blue-600 bg-blue-50' 
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Reports
                 </Link>
                 <Link
                   to="/events"

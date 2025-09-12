@@ -1,6 +1,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { createErrorResponse, ERROR_CODES } = require('./errorHandler');
 
 // Create reports directory if it doesn't exist
 const reportsDir = path.join(__dirname, '../assets/reports');
@@ -21,32 +22,53 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter for allowed types with enhanced validation
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
-  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
-  
-  const fileExtension = path.extname(file.originalname).toLowerCase();
+// Enhanced file validation function
+const validateFile = (file) => {
+  const errors = [];
   
   // Check file extension
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
+  const fileExtension = path.extname(file.originalname).toLowerCase();
+  
   if (!allowedExtensions.includes(fileExtension)) {
-    return cb(new Error('Invalid file extension. Only JPG, PNG, and PDF files are allowed.'), false);
+    errors.push('Invalid file extension. Only JPG, PNG, and PDF files are allowed.');
   }
   
   // Check MIME type
+  const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
   if (!allowedTypes.includes(file.mimetype)) {
-    return cb(new Error('Invalid file type. Only JPG, PNG, and PDF files are allowed.'), false);
+    errors.push('Invalid file type. Only JPG, PNG, and PDF files are allowed.');
   }
   
-  // Additional validation for images
-  if (file.mimetype.startsWith('image/')) {
-    // Check if it's actually an image by extension
-    if (!['.jpg', '.jpeg', '.png'].includes(fileExtension)) {
-      return cb(new Error('Invalid image file. Only JPG and PNG images are allowed.'), false);
-    }
+  // Check filename for dangerous characters
+  const dangerousChars = /[<>:"/\\|?*\x00-\x1f]/;
+  if (dangerousChars.test(file.originalname)) {
+    errors.push('Filename contains invalid characters.');
   }
   
-  cb(null, true);
+  // Check for executable file extensions (additional security)
+  const executableExtensions = ['.exe', '.bat', '.cmd', '.com', '.scr', '.pif', '.vbs', '.js', '.jar'];
+  if (executableExtensions.includes(fileExtension)) {
+    errors.push('Executable files are not allowed.');
+  }
+  
+  // Check filename length
+  if (file.originalname.length > 255) {
+    errors.push('Filename too long. Maximum 255 characters allowed.');
+  }
+  
+  return errors;
+};
+
+// File filter for allowed types with enhanced validation
+const fileFilter = (req, file, cb) => {
+  const errors = validateFile(file);
+  
+  if (errors.length === 0) {
+    cb(null, true);
+  } else {
+    cb(new Error(errors.join(' ')), false);
+  }
 };
 
 // Configure multer
@@ -63,18 +85,34 @@ const upload = multer({
 const handleUploadError = (error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'File size too large. Maximum size is 5MB.' });
+      return res.status(400).json(createErrorResponse(
+        'File size too large. Maximum size is 5MB.',
+        ERROR_CODES.FILE_TOO_LARGE,
+        400
+      ));
     }
     if (error.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({ error: 'Too many files. Maximum 5 files allowed.' });
+      return res.status(400).json(createErrorResponse(
+        'Too many files. Maximum 5 files allowed.',
+        ERROR_CODES.UPLOAD_FAILED,
+        400
+      ));
     }
     if (error.code === 'LIMIT_UNEXPECTED_FILE') {
-      return res.status(400).json({ error: 'Unexpected field name for file upload.' });
+      return res.status(400).json(createErrorResponse(
+        'Unexpected field name for file upload.',
+        ERROR_CODES.UPLOAD_FAILED,
+        400
+      ));
     }
   }
   
-  if (error.message.includes('Invalid file type')) {
-    return res.status(400).json({ error: error.message });
+  if (error.message.includes('Invalid file type') || error.message.includes('Invalid file extension')) {
+    return res.status(400).json(createErrorResponse(
+      error.message,
+      ERROR_CODES.INVALID_FILE_TYPE,
+      400
+    ));
   }
   
   next(error);

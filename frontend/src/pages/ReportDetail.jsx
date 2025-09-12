@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { API_ENDPOINTS } from '../config/api';
 
 const ReportDetail = () => {
   const { id } = useParams();
@@ -13,6 +14,7 @@ const ReportDetail = () => {
     text: '',
     newStatus: ''
   });
+  const [resolutionImages, setResolutionImages] = useState([]);
   const [updating, setUpdating] = useState(false);
   const [timeline, setTimeline] = useState([]);
   const [newComment, setNewComment] = useState('');
@@ -22,7 +24,7 @@ const ReportDetail = () => {
   useEffect(() => {
     const fetchReport = async () => {
       try {
-        const response = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}`);
+        const response = await makeAuthenticatedRequest(API_ENDPOINTS.REPORTS_BY_ID(id));
 
         if (response.ok) {
           const data = await response.json();
@@ -50,24 +52,44 @@ const ReportDetail = () => {
     fetchTimeline();
   }, [id, makeAuthenticatedRequest, user]);
 
+  const handleImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    setResolutionImages(files);
+  };
+
+  const removeImage = (index) => {
+    setResolutionImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleAuthorityUpdate = async (e) => {
     e.preventDefault();
     if (!authorityUpdate.text.trim()) return;
 
     setUpdating(true);
     try {
-      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}/updates`, {
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('text', authorityUpdate.text);
+      if (authorityUpdate.newStatus) {
+        formData.append('newStatus', authorityUpdate.newStatus);
+      }
+      
+      // Add resolution images if any
+      resolutionImages.forEach((file, index) => {
+        formData.append('resolutionImages', file);
+      });
+
+      const response = await makeAuthenticatedRequest(API_ENDPOINTS.REPORTS_UPDATE(id), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(authorityUpdate),
+        body: formData,
+        // Don't set Content-Type header - let browser set it with boundary for FormData
       });
 
       if (response.ok) {
         const data = await response.json();
         setReport(data.report);
         setAuthorityUpdate({ text: '', newStatus: '' });
+        setResolutionImages([]);
       } else {
         const errorData = await response.json();
         setError(errorData.error);
@@ -83,7 +105,7 @@ const ReportDetail = () => {
   const handleCloseReport = async () => {
     setUpdating(true);
     try {
-      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}/close`, {
+      const response = await makeAuthenticatedRequest(API_ENDPOINTS.REPORTS_CLOSE(id), {
         method: 'PATCH'
       });
 
@@ -111,7 +133,7 @@ const ReportDetail = () => {
 
     setUpdating(true);
     try {
-      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}`, {
+      const response = await makeAuthenticatedRequest(API_ENDPOINTS.REPORTS_BY_ID(id), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -138,7 +160,7 @@ const ReportDetail = () => {
 
     setAddingComment(true);
     try {
-      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/comments/${id}`, {
+      const response = await makeAuthenticatedRequest(API_ENDPOINTS.COMMENTS(id), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -149,7 +171,7 @@ const ReportDetail = () => {
       if (response.ok) {
         setNewComment('');
         // Refresh report data to show new comment
-        const reportResponse = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}`);
+        const reportResponse = await makeAuthenticatedRequest(API_ENDPOINTS.REPORTS_BY_ID(id));
         if (reportResponse.ok) {
           const data = await reportResponse.json();
           setReport(data.report);
@@ -175,13 +197,13 @@ const ReportDetail = () => {
     }
 
     try {
-      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/comments/${commentId}`, {
+      const response = await makeAuthenticatedRequest(API_ENDPOINTS.COMMENTS_DELETE(commentId), {
         method: 'DELETE'
       });
 
       if (response.ok) {
         // Refresh report data to remove deleted comment
-        const reportResponse = await makeAuthenticatedRequest(`http://localhost:5000/api/reports/${id}`);
+        const reportResponse = await makeAuthenticatedRequest(API_ENDPOINTS.REPORTS_BY_ID(id));
         if (reportResponse.ok) {
           const data = await reportResponse.json();
           setReport(data.report);
@@ -296,6 +318,33 @@ const ReportDetail = () => {
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(event.data.newStatus)}`}>
                         {event.data.newStatus.replace('_', ' ')}
                       </span>
+                    </div>
+                  )}
+                  {/* Display resolution images if any */}
+                  {event.data.resolutionImages && event.data.resolutionImages.length > 0 && (
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500 mb-2">Resolution images:</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {event.data.resolutionImages.map((imageUrl, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={imageUrl}
+                              alt={`Resolution image ${index + 1}`}
+                              className="w-full h-20 object-cover rounded border"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'block';
+                              }}
+                            />
+                            <div 
+                              className="w-full h-20 bg-gray-100 rounded border flex items-center justify-center text-xs text-gray-500"
+                              style={{ display: 'none' }}
+                            >
+                              PDF/File
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -437,6 +486,36 @@ const ReportDetail = () => {
                           )}
                         </div>
                         <p className="text-gray-700">{update.text}</p>
+                        
+                        {/* Display resolution images if any */}
+                        {update.resolutionImageUrls && update.resolutionImageUrls.length > 0 && (
+                          <div className="mt-3">
+                            <p className="text-xs text-gray-500 mb-2">Resolution images:</p>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                              {update.resolutionImageUrls.map((imageUrl, index) => (
+                                <div key={index} className="relative">
+                                  <img
+                                    src={imageUrl}
+                                    alt={`Resolution image ${index + 1}`}
+                                    className="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => window.open(imageUrl, '_blank')}
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'block';
+                                    }}
+                                  />
+                                  <div 
+                                    className="w-full h-20 bg-gray-100 rounded border flex items-center justify-center text-xs text-gray-500 cursor-pointer hover:bg-gray-200 transition-colors"
+                                    style={{ display: 'none' }}
+                                    onClick={() => window.open(imageUrl, '_blank')}
+                                  >
+                                    PDF/File
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -480,6 +559,45 @@ const ReportDetail = () => {
                           <option value="RESOLVED">Mark as Resolved</option>
                         )}
                       </select>
+                    </div>
+                    
+                    {/* Resolution Images Upload */}
+                    <div>
+                      <label htmlFor="resolutionImages" className="block text-sm font-medium text-gray-700 mb-2">
+                        Resolution Images (Optional)
+                      </label>
+                      <input
+                        type="file"
+                        id="resolutionImages"
+                        multiple
+                        accept="image/*,.pdf"
+                        onChange={handleImageChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Upload images or PDFs to show proof of resolution. Max 5 files, 5MB each.
+                      </p>
+                      
+                      {/* Show selected files */}
+                      {resolutionImages.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-sm font-medium text-gray-700 mb-2">Selected files:</p>
+                          <div className="space-y-2">
+                            {resolutionImages.map((file, index) => (
+                              <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                                <span className="text-sm text-gray-700">{file.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage(index)}
+                                  className="text-red-500 hover:text-red-700 text-sm"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <button
                       type="submit"

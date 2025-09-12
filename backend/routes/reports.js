@@ -3,6 +3,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/roleAuth');
 const { heavyGetLimiter, postLimiter } = require('../middleware/rateLimiter');
+const { upload, handleUploadError } = require('../middleware/upload');
 const {
   createReport,
   getReports,
@@ -33,7 +34,7 @@ router.get('/:id', heavyGetLimiter, getReportById);
 router.get('/:id/timeline', heavyGetLimiter, getReportTimeline);
 
 // POST /api/reports/:id/updates - Add authority update (Authority/Admin only - enforced in controller)
-router.post('/:id/updates', postLimiter, addAuthorityUpdate);
+router.post('/:id/updates', postLimiter, upload.array('resolutionImages', 5), handleUploadError, addAuthorityUpdate);
 
 // PATCH /api/reports/:id/close - Close report (Author only - enforced in controller)
 router.patch('/:id/close', postLimiter, closeReport);

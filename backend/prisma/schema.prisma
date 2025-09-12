@@ -122,6 +122,7 @@ model AuthorityUpdate {
   authority   User     @relation(fields: [authorityId], references: [id])
   text        String
   newStatus   Status?
+  resolutionImages String? // JSON string of image filenames for resolution proof
   createdAt   DateTime @default(now())
 
   @@map("authority_updates")

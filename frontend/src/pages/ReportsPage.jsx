@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { API_ENDPOINTS } from '../config/api';
 
 const ReportsPage = () => {
   const { user, makeAuthenticatedRequest } = useAuth();
@@ -18,7 +19,7 @@ const ReportsPage = () => {
       setLoading(true);
       setError(null);
       
-      const response = await makeAuthenticatedRequest('http://localhost:5000/api/reports?limit=50');
+      const response = await makeAuthenticatedRequest(`${API_ENDPOINTS.REPORTS}?limit=50`);
       
       if (response.ok) {
         const data = await response.json();

@@ -390,6 +390,26 @@ const getReportById = async (req, res) => {
       }));
     }
 
+    // Process authority updates to include resolution image URLs
+    if (report.authorityUpdates) {
+      report.authorityUpdates = report.authorityUpdates.map(update => {
+        let resolutionImageUrls = [];
+        if (update.resolutionImages) {
+          try {
+            const imageFilenames = JSON.parse(update.resolutionImages);
+            resolutionImageUrls = imageFilenames.map(filename => `/assets/reports/${filename}`);
+          } catch (error) {
+            console.error('Error parsing resolution images JSON:', error);
+          }
+        }
+        
+        return {
+          ...update,
+          resolutionImageUrls
+        };
+      });
+    }
+
     // For admin users, also include timeline data
     if (userRole === 'admin') {
       // Get all timeline events
@@ -445,6 +465,16 @@ const getReportById = async (req, res) => {
 
       // Add authority updates
       authorityUpdates.forEach(update => {
+        // Parse resolution images if they exist
+        let resolutionImages = [];
+        if (update.resolutionImages) {
+          try {
+            resolutionImages = JSON.parse(update.resolutionImages);
+          } catch (error) {
+            console.error('Error parsing resolution images JSON:', error);
+          }
+        }
+        
         timeline.push({
           id: `update-${update.id}`,
           type: 'authority_update',
@@ -452,7 +482,8 @@ const getReportById = async (req, res) => {
           data: {
             text: update.text,
             newStatus: update.newStatus,
-            authority: update.authority
+            authority: update.authority,
+            resolutionImages: resolutionImages.map(filename => `/assets/reports/${filename}`)
           }
         });
       });
@@ -512,6 +543,15 @@ const addAuthorityUpdate = async (req, res) => {
     const { text, newStatus } = req.body;
     const authorityId = req.user.id;
     const userRole = req.user.role;
+    
+    // Handle uploaded resolution images
+    const resolutionImages = [];
+    if (req.files && req.files.length > 0) {
+      resolutionImages.push(...req.files.map(file => file.filename));
+    }
+    
+    // Convert to JSON string for SQLite storage
+    const resolutionImagesJson = resolutionImages.length > 0 ? JSON.stringify(resolutionImages) : null;
 
     // Only authority or admin can add updates
     if (userRole !== 'authority' && userRole !== 'admin') {
@@ -575,7 +615,8 @@ const addAuthorityUpdate = async (req, res) => {
           reportId: id,
           authorityId,
           text: text.trim(),
-          newStatus: newStatus || null
+          newStatus: newStatus || null,
+          resolutionImages: resolutionImagesJson
         },
         include: {
           authority: {
@@ -624,9 +665,25 @@ const addAuthorityUpdate = async (req, res) => {
       // Don't fail the update if notification fails
     }
 
+    // Parse resolution images JSON and add full URLs
+    let resolutionImageUrls = [];
+    if (result.authorityUpdate.resolutionImages) {
+      try {
+        const imageFilenames = JSON.parse(result.authorityUpdate.resolutionImages);
+        resolutionImageUrls = imageFilenames.map(filename => `/assets/reports/${filename}`);
+      } catch (error) {
+        console.error('Error parsing resolution images JSON:', error);
+      }
+    }
+    
+    const authorityUpdateWithImages = {
+      ...result.authorityUpdate,
+      resolutionImageUrls
+    };
+
     res.status(201).json({
       message: 'Authority update added successfully',
-      authorityUpdate: result.authorityUpdate,
+      authorityUpdate: authorityUpdateWithImages,
       report: result.updatedReport
     });
 
@@ -909,18 +966,31 @@ const getReportTimeline = async (req, res) => {
           author: report.author
         }
       },
-      ...authorityUpdates.map(update => ({
-        type: 'authority_update',
-        timestamp: update.createdAt,
-        data: {
-          update: {
-            id: update.id,
-            text: update.text,
-            newStatus: update.newStatus
-          },
-          authority: update.authority
+      ...authorityUpdates.map(update => {
+        // Parse resolution images if they exist
+        let resolutionImages = [];
+        if (update.resolutionImages) {
+          try {
+            resolutionImages = JSON.parse(update.resolutionImages);
+          } catch (error) {
+            console.error('Error parsing resolution images JSON:', error);
+          }
         }
-      })),
+        
+        return {
+          type: 'authority_update',
+          timestamp: update.createdAt,
+          data: {
+            update: {
+              id: update.id,
+              text: update.text,
+              newStatus: update.newStatus
+            },
+            authority: update.authority,
+            resolutionImages: resolutionImages.map(filename => `/assets/reports/${filename}`)
+          }
+        };
+      }),
       ...comments.map(comment => ({
         type: 'comment',
         timestamp: comment.createdAt,

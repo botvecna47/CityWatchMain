@@ -4,6 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import { Link } from 'react-router-dom';
 import LazyImage from '../components/LazyImage';
 import CityMap from '../components/CityMap';
+import { API_ENDPOINTS } from '../config/api';
 
 const Dashboard = () => {
   const { user, logout, makeAuthenticatedRequest, loading: authLoading } = useAuth();
@@ -27,21 +28,21 @@ const Dashboard = () => {
       setDataLoading(true);
 
       // Fetch announcements (using events as announcements for now)
-      const announcementsResponse = await makeAuthenticatedRequest('http://localhost:5000/api/events?limit=5');
+      const announcementsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.EVENTS}?limit=5`);
       if (announcementsResponse.ok) {
         const announcementsData = await announcementsResponse.json();
         setAnnouncements(announcementsData.events || []);
       }
 
       // Fetch alerts
-      const alertsResponse = await makeAuthenticatedRequest('http://localhost:5000/api/alerts?limit=5');
+      const alertsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.ALERTS}?limit=5`);
       if (alertsResponse.ok) {
         const alertsData = await alertsResponse.json();
         setAlerts(alertsData.alerts || []);
       }
 
       // Fetch trending reports (most commented)
-      const reportsResponse = await makeAuthenticatedRequest('http://localhost:5000/api/reports?limit=10');
+      const reportsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.REPORTS}?limit=10`);
       if (reportsResponse.ok) {
         const reportsData = await reportsResponse.json();
         // Sort by comment count (trending)

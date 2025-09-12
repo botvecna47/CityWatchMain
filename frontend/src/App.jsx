@@ -5,6 +5,7 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { ToastProvider } from './contexts/ToastContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -20,13 +21,14 @@ import Events from './pages/Events';
 
 function App() {
   return (
-    <AuthProvider>
-      <NotificationProvider>
-        <ToastProvider>
-          <Router>
-          <div className="App">
-            <Navbar />
-            <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <NotificationProvider>
+          <ToastProvider>
+            <Router>
+            <div className="App">
+              <Navbar />
+              <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
@@ -102,12 +104,13 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-          </Routes>
-        </div>
-      </Router>
-        </ToastProvider>
-      </NotificationProvider>
-    </AuthProvider>
+            </Routes>
+            </div>
+            </Router>
+          </ToastProvider>
+        </NotificationProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

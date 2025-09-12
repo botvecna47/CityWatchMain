@@ -14,6 +14,8 @@ import ReportDetail from './pages/ReportDetail';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import AdminDashboard from './pages/AdminDashboard';
+import Alerts from './pages/Alerts';
+import Events from './pages/Events';
 
 function App() {
   return (
@@ -72,6 +74,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AdminDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/alerts" 
+              element={
+                <ProtectedRoute>
+                  <Alerts />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/events" 
+              element={
+                <ProtectedRoute>
+                  <Events />
                 </ProtectedRoute>
               } 
             />

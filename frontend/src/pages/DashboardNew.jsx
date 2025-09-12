@@ -6,7 +6,6 @@ import LazyImage from '../components/LazyImage';
 import FeedCard from '../components/FeedCard';
 import SummaryStats from '../components/SummaryStats';
 import FeedFilter from '../components/FeedFilter';
-import CityMap from '../components/CityMap';
 
 const Dashboard = () => {
   const { user, loading, logout, makeAuthenticatedRequest } = useAuth();
@@ -249,11 +248,6 @@ const Dashboard = () => {
 
         {/* Summary Stats */}
         <SummaryStats stats={stats} loading={statsLoading} />
-
-        {/* City Map */}
-        <div className="mb-8">
-          <CityMap height="400px" showNearbyToggle={true} />
-        </div>
 
         {/* Filter Buttons */}
         <FeedFilter activeFilter={activeFilter} onFilterChange={handleFilterChange} />

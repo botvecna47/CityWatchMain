@@ -10,5 +10,7 @@ router.use('/comments', require('./comments'));
 router.use('/attachments', require('./attachments'));
 router.use('/notifications', require('./notifications'));
 router.use('/admin', require('./admin'));
+router.use('/alerts', require('./alerts'));
+router.use('/events', require('./events'));
 
 module.exports = router;

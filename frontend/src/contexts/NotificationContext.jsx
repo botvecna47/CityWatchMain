@@ -12,7 +12,7 @@ export const useNotifications = () => {
 };
 
 export const NotificationProvider = ({ children }) => {
-  const { user, token } = useAuth();
+  const { user, makeAuthenticatedRequest } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,7 @@ export const NotificationProvider = ({ children }) => {
 
   // Fetch notifications from API
   const fetchNotifications = useCallback(async (page = 1, limit = 20, unreadOnly = false) => {
-    if (!token) return;
+    if (!user) return;
 
     try {
       setLoading(true);
@@ -35,12 +35,7 @@ export const NotificationProvider = ({ children }) => {
         ...(unreadOnly && { unreadOnly: 'true' })
       });
 
-      const response = await fetch(`http://localhost:5000/api/notifications?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/notifications?${params}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch notifications');
@@ -55,19 +50,14 @@ export const NotificationProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [user, makeAuthenticatedRequest]);
 
   // Fetch unread count
   const fetchUnreadCount = useCallback(async () => {
-    if (!token) return;
+    if (!user) return;
 
     try {
-      const response = await fetch('http://localhost:5000/api/notifications/unread-count', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await makeAuthenticatedRequest('http://localhost:5000/api/notifications/unread-count');
 
       if (!response.ok) {
         throw new Error('Failed to fetch unread count');
@@ -78,19 +68,15 @@ export const NotificationProvider = ({ children }) => {
     } catch (err) {
       console.error('Error fetching unread count:', err);
     }
-  }, [token]);
+  }, [user, makeAuthenticatedRequest]);
 
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId) => {
-    if (!token) return false;
+    if (!user) return false;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/notifications/${notificationId}/read`, {
+      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/notifications/${notificationId}/read`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
       });
 
       if (!response.ok) {
@@ -114,19 +100,15 @@ export const NotificationProvider = ({ children }) => {
       console.error('Error marking notification as read:', err);
       return false;
     }
-  }, [token]);
+  }, [user, makeAuthenticatedRequest]);
 
   // Mark all notifications as read
   const markAllAsRead = useCallback(async () => {
-    if (!token) return false;
+    if (!user) return false;
 
     try {
-      const response = await fetch('http://localhost:5000/api/notifications/read-all', {
+      const response = await makeAuthenticatedRequest('http://localhost:5000/api/notifications/read-all', {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
       });
 
       if (!response.ok) {
@@ -146,7 +128,7 @@ export const NotificationProvider = ({ children }) => {
       console.error('Error marking all notifications as read:', err);
       return false;
     }
-  }, [token]);
+  }, [user, makeAuthenticatedRequest]);
 
   // Load initial notifications
   const loadNotifications = useCallback(async () => {
@@ -175,10 +157,16 @@ export const NotificationProvider = ({ children }) => {
     // Set up polling interval
     const interval = setInterval(() => {
       fetchUnreadCount();
+      // Also fetch new notifications to keep the list updated
+      fetchNotifications(1, 20, false).then(data => {
+        if (data) {
+          setNotifications(data.notifications);
+        }
+      });
     }, POLLING_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [user, loadNotifications, fetchUnreadCount]);
+  }, [user, loadNotifications, fetchUnreadCount, fetchNotifications]);
 
   // Refresh notifications (for manual refresh)
   const refreshNotifications = useCallback(async () => {

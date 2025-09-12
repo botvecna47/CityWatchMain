@@ -9,7 +9,8 @@ const {
   addAuthorityUpdate,
   closeReport,
   deleteReport,
-  getReportTimeline
+  getReportTimeline,
+  getNearbyReports
 } = require('../controllers/reportsController');
 
 // All routes require authentication
@@ -20,6 +21,9 @@ router.post('/', createReport);
 
 // GET /api/reports - Get reports list (filtered by user's city)
 router.get('/', getReports);
+
+// GET /api/reports/nearby - Get reports near a location
+router.get('/nearby', getNearbyReports);
 
 // GET /api/reports/:id - Get single report
 router.get('/:id', getReportById);

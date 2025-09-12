@@ -40,10 +40,12 @@ model City {
   slug      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
-  users     User[]
-  reports   Report[]
+  users   User[]
+  reports Report[]
+  alerts  Alert[]
+  events  Event[]
 
   @@map("cities")
 }
@@ -61,14 +63,16 @@ model User {
   bio            String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
+
   // Relations
-  reports           Report[]
-  authorityUpdates  AuthorityUpdate[]
-  auditLogs         AuditLog[]
-  auditLogsPerformed AuditLog[] @relation("AuditLogPerformedBy")
-  comments          Comment[]
-  notifications     Notification[]
+  reports            Report[]
+  authorityUpdates   AuthorityUpdate[]
+  auditLogs          AuditLog[]
+  auditLogsPerformed AuditLog[]        @relation("AuditLogPerformedBy")
+  comments           Comment[]
+  notifications      Notification[]
+  alerts             Alert[]
+  events             Event[]
 
   // Indexes for performance
   @@index([role])
@@ -88,10 +92,12 @@ model Report {
   city        City     @relation(fields: [cityId], references: [id])
   authorId    String
   author      User     @relation(fields: [authorId], references: [id])
+  latitude    Float?
+  longitude   Float?
   deleted     Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
   authorityUpdates AuthorityUpdate[]
   comments         Comment[]
@@ -104,6 +110,7 @@ model Report {
   @@index([createdAt])
   @@index([authorId])
   @@index([category])
+  @@index([latitude, longitude])
   @@map("reports")
 }
 
@@ -125,17 +132,17 @@ model AuditLog {
   actorId       String
   actorRole     Role
   action        String
-  actionType    String   // USER_PROMOTE, USER_DEMOTE, USER_BAN, REPORT_DELETE, REPORT_RESTORE
+  actionType    String // USER_PROMOTE, USER_DEMOTE, USER_BAN, REPORT_DELETE, REPORT_RESTORE
   targetType    String
   targetId      String
   performedById String
   reason        String?
   metadata      Json?
   createdAt     DateTime @default(now())
-  
+
   // Relations
-  actor         User     @relation(fields: [actorId], references: [id])
-  performedBy   User     @relation("AuditLogPerformedBy", fields: [performedById], references: [id])
+  actor       User @relation(fields: [actorId], references: [id])
+  performedBy User @relation("AuditLogPerformedBy", fields: [performedById], references: [id])
 
   @@map("audit_logs")
 }
@@ -173,12 +180,14 @@ model Notification {
   id        String   @id @default(uuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  type      String   // "REPORT_CREATED", "COMMENT_ADDED", "REPORT_UPDATED", "REPORT_CLOSED"
+  type      String // "REPORT_CREATED", "COMMENT_ADDED", "REPORT_UPDATED", "REPORT_CLOSED", "ALERT_CREATED"
   message   String
-  link      String?  // Optional link to related content (e.g., /reports/:id)
+  link      String? // Optional link to related content (e.g., /reports/:id)
   isRead    Boolean  @default(false)
-  reportId  String?  // Optional reference to the related report
+  reportId  String? // Optional reference to the related report
+  alertId   String? // Optional reference to the related alert
   createdAt DateTime @default(now())
+  Alert     Alert?   @relation(fields: [alertId], references: [id])
 
   // Indexes for performance
   @@index([userId])
@@ -186,4 +195,51 @@ model Notification {
   @@index([createdAt])
   @@index([type])
   @@map("notifications")
+}
+
+model Alert {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  cityId    String
+  city      City     @relation(fields: [cityId], references: [id])
+  createdBy String
+  creator   User     @relation(fields: [createdBy], references: [id])
+  isPinned  Boolean  @default(false)
+  deleted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  notifications Notification[]
+
+  // Indexes for performance
+  @@index([cityId])
+  @@index([createdBy])
+  @@index([isPinned])
+  @@index([deleted])
+  @@index([createdAt])
+  @@map("alerts")
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  dateTime    DateTime
+  location    String?
+  imageUrl    String?
+  cityId      String
+  city        City     @relation(fields: [cityId], references: [id])
+  createdBy   String
+  creator     User     @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Indexes for performance
+  @@index([cityId])
+  @@index([createdBy])
+  @@index([dateTime])
+  @@index([createdAt])
+  @@map("events")
 }

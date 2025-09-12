@@ -8,7 +8,7 @@ const {
 // Create a new report (Citizens only)
 const createReport = async (req, res) => {
   try {
-    const { title, description, category } = req.body;
+    const { title, description, category, latitude, longitude } = req.body;
     const authorId = req.user.id;
     const cityId = req.user.cityId; // Server enforces cityId from user
 
@@ -55,6 +55,34 @@ const createReport = async (req, res) => {
       });
     }
 
+    // Parse location coordinates if provided
+    let parsedLatitude = null;
+    let parsedLongitude = null;
+    
+    if (latitude && longitude) {
+      parsedLatitude = parseFloat(latitude);
+      parsedLongitude = parseFloat(longitude);
+      
+      // Validate coordinates
+      if (isNaN(parsedLatitude) || isNaN(parsedLongitude)) {
+        return res.status(400).json({
+          error: 'Invalid latitude or longitude values'
+        });
+      }
+      
+      if (parsedLatitude < -90 || parsedLatitude > 90) {
+        return res.status(400).json({
+          error: 'Latitude must be between -90 and 90 degrees'
+        });
+      }
+      
+      if (parsedLongitude < -180 || parsedLongitude > 180) {
+        return res.status(400).json({
+          error: 'Longitude must be between -180 and 180 degrees'
+        });
+      }
+    }
+
     // Create report
     const report = await prisma.report.create({
       data: {
@@ -62,7 +90,9 @@ const createReport = async (req, res) => {
         description: description.trim(),
         category,
         cityId,
-        authorId
+        authorId,
+        latitude: parsedLatitude,
+        longitude: parsedLongitude
       },
       include: {
         author: {
@@ -866,6 +896,129 @@ const getReportTimeline = async (req, res) => {
   }
 };
 
+// Get reports near a specific location
+const getNearbyReports = async (req, res) => {
+  try {
+    const { lat, lng, radius = 5 } = req.query; // radius in kilometers
+    const userCityId = req.user.cityId;
+
+    if (!lat || !lng) {
+      return res.status(400).json({
+        error: 'Latitude and longitude are required'
+      });
+    }
+
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lng);
+    const radiusKm = parseFloat(radius);
+
+    if (isNaN(latitude) || isNaN(longitude) || isNaN(radiusKm)) {
+      return res.status(400).json({
+        error: 'Invalid latitude, longitude, or radius values'
+      });
+    }
+
+    // Calculate bounding box for approximate filtering (more efficient than distance calculation)
+    const earthRadius = 6371; // Earth's radius in kilometers
+    const latDelta = (radiusKm / earthRadius) * (180 / Math.PI);
+    const lngDelta = (radiusKm / earthRadius) * (180 / Math.PI) / Math.cos(latitude * Math.PI / 180);
+
+    const minLat = latitude - latDelta;
+    const maxLat = latitude + latDelta;
+    const minLng = longitude - lngDelta;
+    const maxLng = longitude + lngDelta;
+
+    // Get reports in bounding box, then filter by actual distance
+    const reports = await prisma.report.findMany({
+      where: {
+        cityId: userCityId,
+        deleted: false,
+        latitude: {
+          gte: minLat,
+          lte: maxLat
+        },
+        longitude: {
+          gte: minLng,
+          lte: maxLng
+        }
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            role: true
+          }
+        },
+        attachments: {
+          select: {
+            id: true,
+            filename: true,
+            url: true,
+            mimeType: true
+          }
+        },
+        comments: {
+          select: {
+            id: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Filter by actual distance using Haversine formula
+    const nearbyReports = reports.filter(report => {
+      if (!report.latitude || !report.longitude) return false;
+      
+      const distance = calculateDistance(
+        latitude, longitude,
+        report.latitude, report.longitude
+      );
+      
+      return distance <= radiusKm;
+    });
+
+    // Add distance to each report
+    const reportsWithDistance = nearbyReports.map(report => ({
+      ...report,
+      distance: calculateDistance(
+        latitude, longitude,
+        report.latitude, report.longitude
+      )
+    }));
+
+    res.json({
+      reports: reportsWithDistance,
+      center: { lat: latitude, lng: longitude },
+      radius: radiusKm,
+      count: reportsWithDistance.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching nearby reports:', error);
+    res.status(500).json({
+      error: 'Failed to fetch nearby reports'
+    });
+  }
+};
+
+// Helper function to calculate distance between two points using Haversine formula
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = R * c;
+  return distance;
+};
+
 module.exports = {
   createReport,
   getReports,
@@ -873,5 +1026,6 @@ module.exports = {
   addAuthorityUpdate,
   closeReport,
   deleteReport,
-  getReportTimeline
+  getReportTimeline,
+  getNearbyReports
 };

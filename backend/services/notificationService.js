@@ -1,16 +1,15 @@
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
+const prisma = require('./database');
 
 /**
  * Create a notification for a user
  * @param {string} userId - The user ID to notify
- * @param {string} type - Notification type (REPORT_CREATED, COMMENT_ADDED, REPORT_UPDATED, REPORT_CLOSED)
+ * @param {string} type - Notification type (REPORT_CREATED, COMMENT_ADDED, REPORT_UPDATED, REPORT_CLOSED, ALERT_CREATED)
  * @param {string} message - The notification message
  * @param {string} link - Optional link to related content
  * @param {string} reportId - Optional report ID reference
+ * @param {string} alertId - Optional alert ID reference
  */
-const createNotification = async (userId, type, message, link = null, reportId = null) => {
+const createNotification = async (userId, type, message, link = null, reportId = null, alertId = null) => {
   try {
     const notification = await prisma.notification.create({
       data: {
@@ -19,6 +18,7 @@ const createNotification = async (userId, type, message, link = null, reportId =
         message,
         link,
         reportId,
+        alertId,
       },
     });
     return notification;
@@ -35,8 +35,9 @@ const createNotification = async (userId, type, message, link = null, reportId =
  * @param {string} message - The notification message
  * @param {string} link - Optional link to related content
  * @param {string} reportId - Optional report ID reference
+ * @param {string} alertId - Optional alert ID reference
  */
-const createBulkNotifications = async (userIds, type, message, link = null, reportId = null) => {
+const createBulkNotifications = async (userIds, type, message, link = null, reportId = null, alertId = null) => {
   try {
     const notifications = await prisma.notification.createMany({
       data: userIds.map(userId => ({
@@ -45,6 +46,7 @@ const createBulkNotifications = async (userIds, type, message, link = null, repo
         message,
         link,
         reportId,
+        alertId,
       })),
     });
     return notifications;
@@ -276,6 +278,36 @@ const getUnreadCount = async (userId) => {
   }
 };
 
+/**
+ * Notify all users in a city when a new alert is created
+ * @param {string} cityId - The city ID
+ * @param {string} alertId - The alert ID
+ * @param {string} alertTitle - The alert title
+ * @param {string} creatorUsername - The alert creator's username
+ */
+const notifyAlertCreated = async (cityId, alertId, alertTitle, creatorUsername) => {
+  try {
+    // Get all users in the city (excluding the creator)
+    const users = await prisma.user.findMany({
+      where: {
+        cityId,
+        isBanned: false,
+      },
+      select: { id: true },
+    });
+
+    if (users.length === 0) return;
+
+    const userIds = users.map(user => user.id);
+    const message = `New alert: "${alertTitle}" by ${creatorUsername}`;
+    const link = `/alerts`;
+
+    await createBulkNotifications(userIds, 'ALERT_CREATED', message, link, null, alertId);
+  } catch (error) {
+    console.error('Error notifying users of new alert:', error);
+  }
+};
+
 module.exports = {
   createNotification,
   createBulkNotifications,
@@ -283,6 +315,7 @@ module.exports = {
   notifyCommentAdded,
   notifyAuthorityUpdate,
   notifyReportClosed,
+  notifyAlertCreated,
   getUserNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,

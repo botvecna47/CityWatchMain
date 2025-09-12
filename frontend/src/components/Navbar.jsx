@@ -59,6 +59,28 @@ const Navbar = () => {
                 >
                   Settings
                 </Link>
+                <Link
+                  to="/events"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive('/events') 
+                      ? 'text-green-600 bg-green-50' 
+                      : 'text-green-700 hover:text-green-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Events
+                </Link>
+                {['authority', 'admin'].includes(user.role) && (
+                  <Link
+                    to="/alerts"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive('/alerts') 
+                        ? 'text-yellow-600 bg-yellow-50' 
+                        : 'text-yellow-700 hover:text-yellow-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Alerts
+                  </Link>
+                )}
                 {user.role === 'admin' && (
                   <Link
                     to="/admin/dashboard"
@@ -161,6 +183,28 @@ const Navbar = () => {
                 >
                   Dashboard
                 </Link>
+                <Link
+                  to="/events"
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    isActive('/events') 
+                      ? 'text-green-600 bg-green-50' 
+                      : 'text-green-700 hover:text-green-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Events
+                </Link>
+                {['authority', 'admin'].includes(user.role) && (
+                  <Link
+                    to="/alerts"
+                    className={`block px-3 py-2 rounded-md text-base font-medium ${
+                      isActive('/alerts') 
+                        ? 'text-yellow-600 bg-yellow-50' 
+                        : 'text-yellow-700 hover:text-yellow-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Alerts
+                  </Link>
+                )}
                 <div className="flex items-center space-x-3 px-3 py-2">
                   <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                     {user.profilePictureUrl ? (

@@ -1,4 +1,4 @@
-const notificationService = require('../services/notifications');
+const notificationService = require('../services/notificationService');
 
 // Get notifications for the current user
 const getNotifications = async (req, res) => {
@@ -6,13 +6,23 @@ const getNotifications = async (req, res) => {
     const userId = req.user.id;
     const { limit = 20, offset = 0, unreadOnly = false } = req.query;
     
-    const notifications = await notificationService.getUserNotifications(userId, {
-      limit: parseInt(limit),
-      offset: parseInt(offset),
-      unreadOnly: unreadOnly === 'true'
-    });
+    const page = Math.floor(parseInt(offset) / parseInt(limit)) + 1;
+    const notifications = await notificationService.getUserNotifications(
+      userId, 
+      page, 
+      parseInt(limit), 
+      unreadOnly === 'true'
+    );
     
-    res.json({ notifications });
+    res.json({ 
+      data: {
+        notifications: notifications.notifications,
+        total: notifications.total,
+        totalPages: notifications.totalPages,
+        page: notifications.page,
+        limit: notifications.limit
+      }
+    });
   } catch (error) {
     console.error('Get notifications error:', error);
     res.status(500).json({ error: 'Failed to fetch notifications' });
@@ -25,12 +35,19 @@ const markAsRead = async (req, res) => {
     const userId = req.user.id;
     const { notificationIds } = req.body;
     
-    // If notificationIds is provided, mark specific notifications as read
-    // If not provided, mark all notifications as read
-    const result = await notificationService.markNotificationsAsRead(
-      userId, 
-      notificationIds || []
-    );
+    let result;
+    if (notificationIds && notificationIds.length > 0) {
+      // Mark specific notifications as read
+      result = await Promise.all(
+        notificationIds.map(id => 
+          notificationService.markNotificationAsRead(id, userId)
+        )
+      );
+      result = { count: result.length };
+    } else {
+      // Mark all notifications as read
+      result = await notificationService.markAllNotificationsAsRead(userId);
+    }
     
     res.json({ 
       message: 'Notifications marked as read',

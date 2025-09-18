@@ -348,11 +348,6 @@ const deleteReport = async (req, res) => {
   try {
     const { id } = req.params;
     const adminId = req.user.id;
-    
-    console.log('🔍 DeleteReport Debug:');
-    console.log('  - Report ID:', id);
-    console.log('  - Admin ID:', adminId);
-    console.log('  - Admin User:', req.user);
 
     // Get current report
     const currentReport = await prisma.report.findUnique({
@@ -387,11 +382,6 @@ const deleteReport = async (req, res) => {
     });
 
     // Create audit log
-    console.log('🔍 Creating audit log with data:');
-    console.log('  - actorId:', adminId);
-    console.log('  - actorRole: admin');
-    console.log('  - performedById:', adminId);
-    
     await prisma.auditLog.create({
       data: {
         actorId: adminId,

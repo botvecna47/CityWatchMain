@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../services/database');
+const { generateOTP, sendOTPEmail } = require('../utils/mailer');
 
 // Generate JWT tokens
 const generateTokens = (userId) => {
@@ -135,7 +136,11 @@ const signup = async (req, res) => {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create user
+    // Generate OTP and expiry
+    const otpCode = generateOTP();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+    // Create user (unverified initially)
     const user = await prisma.user.create({
       data: {
         username,
@@ -147,6 +152,9 @@ const signup = async (req, res) => {
         dob: new Date(dob),
         mobile,
         agreedTos: true,
+        isVerified: false,
+        otpCode,
+        otpExpires,
         cityId,
         role: 'citizen' // Always assign citizen role
       },
@@ -158,6 +166,7 @@ const signup = async (req, res) => {
         middleName: true,
         lastName: true,
         mobile: true,
+        isVerified: true,
         role: true,
         cityId: true,
         city: {
@@ -172,14 +181,30 @@ const signup = async (req, res) => {
       }
     });
 
-    // Generate tokens
-    const { accessToken, refreshToken } = generateTokens(user.id);
+    // Send OTP email
+    const fullName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim();
+    const emailResult = await sendOTPEmail(email, fullName, otpCode);
+    
+    if (!emailResult.success) {
+      // If email fails, delete the user and return error
+      await prisma.user.delete({ where: { id: user.id } });
+      return res.status(500).json({
+        error: 'Failed to send verification email. Please try again.'
+      });
+    }
 
     res.status(201).json({
-      message: 'User created successfully',
-      user,
-      accessToken,
-      refreshToken
+      message: 'User created successfully. Please check your email for verification code.',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        firstName: user.firstName,
+        middleName: user.middleName,
+        lastName: user.lastName,
+        isVerified: user.isVerified
+      },
+      requiresVerification: true
     });
 
   } catch (error) {
@@ -226,6 +251,13 @@ const login = async (req, res) => {
       });
     }
 
+    // Check if user is verified
+    if (!user.isVerified) {
+      return res.status(403).json({
+        error: 'Please verify your email first.',
+        requiresVerification: true
+      });
+    }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -345,9 +377,194 @@ const getMe = async (req, res) => {
 };
 
 
+// Verify OTP
+const verifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    // Validation
+    if (!email || !otp) {
+      return res.status(400).json({
+        error: 'Email and OTP code are required'
+      });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        error: 'Please provide a valid email address'
+      });
+    }
+
+    if (!/^\d{6}$/.test(otp)) {
+      return res.status(400).json({
+        error: 'OTP must be a 6-digit number'
+      });
+    }
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    // Check if user is already verified
+    if (user.isVerified) {
+      return res.status(400).json({
+        error: 'Email is already verified'
+      });
+    }
+
+    // Check if OTP exists and is not expired
+    if (!user.otpCode || !user.otpExpires) {
+      return res.status(400).json({
+        error: 'No verification code found. Please request a new one.'
+      });
+    }
+
+    if (new Date() > user.otpExpires) {
+      return res.status(400).json({
+        error: 'Verification code has expired. Please request a new one.'
+      });
+    }
+
+    // Verify OTP
+    if (user.otpCode !== otp) {
+      return res.status(400).json({
+        error: 'Invalid verification code'
+      });
+    }
+
+    // Mark user as verified and clear OTP
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        otpCode: null,
+        otpExpires: null
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        mobile: true,
+        isVerified: true,
+        role: true,
+        cityId: true,
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        },
+        createdAt: true,
+        updatedAt: true
+      }
+    });
+
+    // Generate tokens
+    const { accessToken, refreshToken } = generateTokens(updatedUser.id);
+
+    res.json({
+      message: 'Email verified successfully! Welcome to CityWatch.',
+      user: updatedUser,
+      accessToken,
+      refreshToken
+    });
+
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
+// Resend OTP
+const resendOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validation
+    if (!email) {
+      return res.status(400).json({
+        error: 'Email is required'
+      });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        error: 'Please provide a valid email address'
+      });
+    }
+
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    // Check if user is already verified
+    if (user.isVerified) {
+      return res.status(400).json({
+        error: 'Email is already verified'
+      });
+    }
+
+    // Generate new OTP
+    const otpCode = generateOTP();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+    // Update user with new OTP
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        otpCode,
+        otpExpires
+      }
+    });
+
+    // Send OTP email
+    const fullName = `${user.firstName} ${user.middleName ? user.middleName + ' ' : ''}${user.lastName}`.trim();
+    const { sendResendOTPEmail } = require('../utils/mailer');
+    const emailResult = await sendResendOTPEmail(email, fullName, otpCode);
+    
+    if (!emailResult.success) {
+      return res.status(500).json({
+        error: 'Failed to send verification email. Please try again.'
+      });
+    }
+
+    res.json({
+      message: 'New verification code sent to your email.'
+    });
+
+  } catch (error) {
+    console.error('Resend OTP error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   signup,
   login,
   refreshToken,
-  getMe
+  getMe,
+  verifyOTP,
+  resendOTP
 };

@@ -333,16 +333,12 @@ const Settings = () => {
                   <p className="text-sm text-gray-900">{user.username}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-500">Email:</span>
-                  <p className="text-sm text-gray-900">{user.email}</p>
-                </div>
-                <div>
                   <span className="text-sm font-medium text-gray-500">Role:</span>
                   <p className="text-sm text-gray-900 capitalize">{user.role}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">Current City:</span>
-                  <p className="text-sm text-gray-900">{user.city?.name || 'Unknown'}</p>
+                  <p className="text-sm text-gray-900">{user.city?.name || 'Not set'}</p>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-500">Member Since:</span>
@@ -356,6 +352,25 @@ const Settings = () => {
                     <p className="text-sm text-gray-900">{user.bio}</p>
                   </div>
                 )}
+              </div>
+              
+              {/* Privacy Notice */}
+              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-blue-800">
+                      Privacy Notice
+                    </h3>
+                    <div className="mt-2 text-sm text-blue-700">
+                      <p>Your email address is kept private and is only used for account verification and important notifications.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

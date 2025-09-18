@@ -22,6 +22,8 @@ const Signup = () => {
   const [error, setError] = useState('');
   const [cities, setCities] = useState([]);
   const [citiesLoading, setCitiesLoading] = useState(true);
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [otpData, setOtpData] = useState({ email: '', firstName: '', lastName: '' });
 
   // Fetch cities from API
   useEffect(() => {
@@ -107,13 +109,24 @@ const Signup = () => {
         throw new Error(data.error || 'Signup failed');
       }
 
-      // Use auth context to store user data and tokens
+      // If signup successful but requires verification
+      if (data.requiresVerification) {
+        setOtpData({ 
+          email: formData.email, 
+          firstName: formData.firstName, 
+          lastName: formData.lastName 
+        });
+        setShowOTPVerification(true);
+        setLoading(false);
+        return;
+      }
+
+      // If verification not required (shouldn't happen with new flow)
       login(data.user, {
         accessToken: data.accessToken,
         refreshToken: data.refreshToken
       });
 
-      // Redirect to dashboard
       navigate('/dashboard');
     } catch (err) {
       setError(err.message);
@@ -342,6 +355,182 @@ const Signup = () => {
             </button>
           </div>
         </form>
+      </div>
+
+      {/* OTP Verification Modal */}
+      {showOTPVerification && (
+        <OTPVerification 
+          email={otpData.email}
+          firstName={otpData.firstName}
+          lastName={otpData.lastName}
+          onSuccess={(user, tokens) => {
+            login(user, tokens);
+            navigate('/dashboard');
+          }}
+          onClose={() => setShowOTPVerification(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+// OTP Verification Component
+const OTPVerification = ({ email, firstName, lastName, onSuccess, onClose }) => {
+  const [otpCode, setOtpCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const handleVerifyOTP = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    if (otpCode.length !== 6) {
+      setError('Please enter a valid 6-digit code');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          otp: otpCode
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Verification failed');
+      }
+
+      onSuccess(data.user, {
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken
+      });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setResendLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/resend-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to resend OTP');
+      }
+
+      // Start cooldown timer
+      setResendCooldown(60);
+      const timer = setInterval(() => {
+        setResendCooldown(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Verify Your Email
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            We've sent a 6-digit verification code to <strong>{email}</strong>
+          </p>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md mb-4">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleVerifyOTP} className="space-y-4">
+          <div>
+            <label htmlFor="otpCode" className="block text-sm font-medium text-gray-700 mb-2">
+              Verification Code
+            </label>
+            <input
+              id="otpCode"
+              type="text"
+              maxLength="6"
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center text-lg tracking-widest"
+              placeholder="000000"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+            />
+          </div>
+
+          <div className="flex space-x-3">
+            <button
+              type="submit"
+              disabled={loading || otpCode.length !== 6}
+              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Verifying...' : 'Verify Email'}
+            </button>
+            
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-4 text-center">
+          <p className="text-sm text-gray-600 mb-2">
+            Didn't receive the code?
+          </p>
+          <button
+            onClick={handleResendOTP}
+            disabled={resendLoading || resendCooldown > 0}
+            className="text-blue-600 hover:text-blue-500 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {resendLoading 
+              ? 'Sending...' 
+              : resendCooldown > 0 
+                ? `Resend in ${resendCooldown}s` 
+                : 'Resend Code'
+            }
+          </button>
+        </div>
       </div>
     </div>
   );

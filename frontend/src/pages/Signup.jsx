@@ -10,7 +10,13 @@ const Signup = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    cityId: ''
+    cityId: '',
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    dob: '',
+    mobile: '',
+    agreedTos: false
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,9 +43,10 @@ const Signup = () => {
   }, []);
 
   const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: type === 'checkbox' ? checked : value
     });
     setError(''); // Clear error when user types
   };
@@ -62,6 +69,18 @@ const Signup = () => {
       return;
     }
 
+    if (!formData.firstName || !formData.lastName) {
+      setError('First name and last name are required');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.agreedTos) {
+      setError('You must agree to the Terms and Conditions');
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch('http://localhost:5000/api/auth/signup', {
         method: 'POST',
@@ -72,7 +91,13 @@ const Signup = () => {
           username: formData.username,
           email: formData.email,
           password: formData.password,
-          cityId: formData.cityId
+          cityId: formData.cityId,
+          firstName: formData.firstName,
+          middleName: formData.middleName,
+          lastName: formData.lastName,
+          dob: formData.dob,
+          mobile: formData.mobile,
+          agreedTos: formData.agreedTos
         }),
       });
 
@@ -119,6 +144,55 @@ const Signup = () => {
           )}
           
           <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                  First Name *
+                </label>
+                <input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  required
+                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="First name"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="middleName" className="block text-sm font-medium text-gray-700">
+                  Middle Name
+                </label>
+                <input
+                  id="middleName"
+                  name="middleName"
+                  type="text"
+                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Middle name (optional)"
+                  value={formData.middleName}
+                  onChange={handleChange}
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                  Last Name *
+                </label>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  required
+                  className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  placeholder="Last name"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700">
                 Username
@@ -148,6 +222,38 @@ const Signup = () => {
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="Email address"
                 value={formData.email}
+                onChange={handleChange}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="mobile" className="block text-sm font-medium text-gray-700">
+                Mobile Number
+              </label>
+              <input
+                id="mobile"
+                name="mobile"
+                type="tel"
+                required
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                placeholder="10-digit mobile number"
+                value={formData.mobile}
+                onChange={handleChange}
+                maxLength="10"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="dob" className="block text-sm font-medium text-gray-700">
+                Date of Birth
+              </label>
+              <input
+                id="dob"
+                name="dob"
+                type="date"
+                required
+                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                value={formData.dob}
                 onChange={handleChange}
               />
             </div>
@@ -205,6 +311,24 @@ const Signup = () => {
                 value={formData.confirmPassword}
                 onChange={handleChange}
               />
+            </div>
+
+            <div className="flex items-center">
+              <input
+                id="agreedTos"
+                name="agreedTos"
+                type="checkbox"
+                required
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                checked={formData.agreedTos}
+                onChange={handleChange}
+              />
+              <label htmlFor="agreedTos" className="ml-2 block text-sm text-gray-700">
+                I agree to the{' '}
+                <a href="#" className="text-blue-600 hover:text-blue-500">
+                  Terms and Conditions
+                </a>
+              </label>
             </div>
           </div>
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationDropdown from './NotificationDropdown';
+import ThemeToggle from './ThemeToggle';
 
 const Navbar = () => {
   const location = useLocation();
@@ -16,11 +17,11 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="bg-white shadow-lg">
+    <nav className="bg-white dark:bg-slate-800 shadow-lg dark:shadow-card-dark border-b border-slate-200 dark:border-slate-700">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
           <div className="flex items-center">
-            <Link to="/" className="text-2xl font-bold text-blue-600">
+            <Link to="/" className="text-2xl font-bold text-brand-600 dark:text-brand-400">
               CityWatch
             </Link>
           </div>
@@ -104,6 +105,7 @@ const Navbar = () => {
                   </Link>
                 )}
                 <div className="flex items-center space-x-4">
+                  <ThemeToggle />
                   <NotificationDropdown />
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">

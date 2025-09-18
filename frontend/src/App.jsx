@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -22,10 +23,11 @@ import Events from './pages/Events';
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <NotificationProvider>
-          <ToastProvider>
-            <Router>
+      <ThemeProvider>
+        <AuthProvider>
+          <NotificationProvider>
+            <ToastProvider>
+              <Router>
             <div className="App">
               <Navbar />
               <Routes>
@@ -106,10 +108,11 @@ function App() {
             />
             </Routes>
             </div>
-            </Router>
-          </ToastProvider>
-        </NotificationProvider>
-      </AuthProvider>
+              </Router>
+            </ToastProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

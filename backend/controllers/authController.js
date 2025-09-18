@@ -32,15 +32,51 @@ const isValidPassword = (password) => {
   return passwordRegex.test(password);
 };
 
+// Validate mobile number (Indian format)
+const isValidMobile = (mobile) => {
+  const mobileRegex = /^[6-9]\d{9}$/;
+  return mobileRegex.test(mobile);
+};
+
+// Validate date of birth (must be at least 13 years old)
+const isValidDOB = (dob) => {
+  const birthDate = new Date(dob);
+  const today = new Date();
+  const age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    return age - 1 >= 13;
+  }
+  return age >= 13;
+};
+
 // Signup
 const signup = async (req, res) => {
   try {
-    const { username, email, password, cityId } = req.body;
+    const { 
+      username, 
+      email, 
+      password, 
+      cityId, 
+      firstName, 
+      middleName, 
+      lastName, 
+      dob, 
+      mobile, 
+      agreedTos 
+    } = req.body;
 
     // Validation
-    if (!username || !email || !password || !cityId) {
+    if (!username || !email || !password || !cityId || !firstName || !lastName || !dob || !mobile) {
       return res.status(400).json({
-        error: 'All fields are required: username, email, password, cityId'
+        error: 'All fields are required: username, email, password, cityId, firstName, lastName, dob, mobile'
+      });
+    }
+
+    if (!agreedTos) {
+      return res.status(400).json({
+        error: 'You must agree to the Terms and Conditions'
       });
     }
 
@@ -56,12 +92,25 @@ const signup = async (req, res) => {
       });
     }
 
+    if (!isValidMobile(mobile)) {
+      return res.status(400).json({
+        error: 'Please provide a valid 10-digit Indian mobile number'
+      });
+    }
+
+    if (!isValidDOB(dob)) {
+      return res.status(400).json({
+        error: 'You must be at least 13 years old to register'
+      });
+    }
+
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
       where: {
         OR: [
           { email: email },
-          { username: username }
+          { username: username },
+          { mobile: mobile }
         ]
       }
     });
@@ -71,9 +120,13 @@ const signup = async (req, res) => {
         return res.status(400).json({
           error: 'Email already registered'
         });
-      } else {
+      } else if (existingUser.username === username) {
         return res.status(400).json({
           error: 'Username already taken'
+        });
+      } else if (existingUser.mobile === mobile) {
+        return res.status(400).json({
+          error: 'Mobile number already registered'
         });
       }
     }
@@ -82,12 +135,18 @@ const signup = async (req, res) => {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Create user (always as citizen)
+    // Create user
     const user = await prisma.user.create({
       data: {
         username,
         email,
         password: hashedPassword,
+        firstName,
+        middleName,
+        lastName,
+        dob: new Date(dob),
+        mobile,
+        agreedTos: true,
         cityId,
         role: 'citizen' // Always assign citizen role
       },
@@ -95,6 +154,10 @@ const signup = async (req, res) => {
         id: true,
         username: true,
         email: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        mobile: true,
         role: true,
         cityId: true,
         city: {
@@ -162,6 +225,7 @@ const login = async (req, res) => {
         error: 'Account banned'
       });
     }
+
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -279,6 +343,7 @@ const getMe = async (req, res) => {
     });
   }
 };
+
 
 module.exports = {
   signup,

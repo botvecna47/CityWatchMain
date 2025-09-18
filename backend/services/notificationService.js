@@ -1,323 +1,125 @@
 const prisma = require('./database');
+const { createNotification, createNotificationsForUsers } = require('./notifications');
 
 /**
- * Create a notification for a user
- * @param {string} userId - The user ID to notify
- * @param {string} type - Notification type (REPORT_CREATED, COMMENT_ADDED, REPORT_UPDATED, REPORT_CLOSED, ALERT_CREATED)
- * @param {string} message - The notification message
- * @param {string} link - Optional link to related content
- * @param {string} reportId - Optional report ID reference
- * @param {string} alertId - Optional alert ID reference
- */
-const createNotification = async (userId, type, message, link = null, reportId = null, alertId = null) => {
-  try {
-    const notification = await prisma.notification.create({
-      data: {
-        userId,
-        type,
-        message,
-        link,
-        reportId,
-        alertId,
-      },
-    });
-    return notification;
-  } catch (error) {
-    console.error('Error creating notification:', error);
-    throw error;
-  }
-};
-
-/**
- * Create notifications for multiple users
- * @param {string[]} userIds - Array of user IDs to notify
- * @param {string} type - Notification type
- * @param {string} message - The notification message
- * @param {string} link - Optional link to related content
- * @param {string} reportId - Optional report ID reference
- * @param {string} alertId - Optional alert ID reference
- */
-const createBulkNotifications = async (userIds, type, message, link = null, reportId = null, alertId = null) => {
-  try {
-    const notifications = await prisma.notification.createMany({
-      data: userIds.map(userId => ({
-        userId,
-        type,
-        message,
-        link,
-        reportId,
-        alertId,
-      })),
-    });
-    return notifications;
-  } catch (error) {
-    console.error('Error creating bulk notifications:', error);
-    throw error;
-  }
-};
-
-/**
- * Notify all authorities in a city when a new report is created
- * @param {string} cityId - The city ID
+ * Notify authorities when a new report is created
+ * @param {string} cityId - The city ID where the report was created
  * @param {string} reportId - The report ID
  * @param {string} reportTitle - The report title
- * @param {string} authorUsername - The report author's username
+ * @param {string} authorUsername - The username of the report author
  */
 const notifyAuthoritiesOfNewReport = async (cityId, reportId, reportTitle, authorUsername) => {
   try {
-    // Get all authorities in the city
+    // Get all authority users in the same city
     const authorities = await prisma.user.findMany({
       where: {
-        cityId,
-        role: 'authority',
-        isBanned: false,
+        cityId: cityId,
+        role: 'authority'
       },
-      select: { id: true },
+      select: { id: true }
     });
 
-    if (authorities.length === 0) return;
-
-    const userIds = authorities.map(auth => auth.id);
-    const message = `New report "${reportTitle}" created by ${authorUsername}`;
-    const link = `/reports/${reportId}`;
-
-    await createBulkNotifications(userIds, 'REPORT_CREATED', message, link, reportId);
-  } catch (error) {
-    console.error('Error notifying authorities of new report:', error);
-  }
-};
-
-/**
- * Notify report author and commenters when a new comment is added
- * @param {string} reportId - The report ID
- * @param {string} commenterUsername - The commenter's username
- * @param {string} reportTitle - The report title
- * @param {string} commenterId - The commenter's ID (to exclude from notifications)
- */
-const notifyCommentAdded = async (reportId, commenterUsername, reportTitle, commenterId) => {
-  try {
-    // Get report author
-    const report = await prisma.report.findUnique({
-      where: { id: reportId },
-      select: { authorId: true },
-    });
-
-    if (!report) return;
-
-    // Get all unique commenters (excluding the new commenter)
-    const commenters = await prisma.comment.findMany({
-      where: { reportId },
-      select: { authorId: true },
-      distinct: ['authorId'],
-    });
-
-    const userIds = new Set();
-    
-    // Add report author (if not the commenter)
-    if (report.authorId !== commenterId) {
-      userIds.add(report.authorId);
+    if (authorities.length === 0) {
+      console.log(`No authorities found for city ${cityId}`);
+      return;
     }
 
-    // Add other commenters (excluding the new commenter)
-    commenters.forEach(comment => {
-      if (comment.authorId !== commenterId) {
-        userIds.add(comment.authorId);
-      }
-    });
+    const authorityIds = authorities.map(auth => auth.id);
+    const message = `New report "${reportTitle}" created by ${authorUsername}`;
 
-    if (userIds.size === 0) return;
+    await createNotificationsForUsers(
+      authorityIds,
+      'new_report',
+      message,
+      reportId
+    );
 
-    const message = `${commenterUsername} commented on "${reportTitle}"`;
-    const link = `/reports/${reportId}`;
-
-    await createBulkNotifications(Array.from(userIds), 'COMMENT_ADDED', message, link, reportId);
+    console.log(`Notified ${authorityIds.length} authorities about new report ${reportId}`);
   } catch (error) {
-    console.error('Error notifying comment added:', error);
+    console.error('Error notifying authorities of new report:', error);
+    throw error;
   }
 };
 
 /**
- * Notify report author when authority adds an update
+ * Notify report author when an authority provides an update
  * @param {string} reportId - The report ID
- * @param {string} authorityUsername - The authority's username
+ * @param {string} authorityUsername - The username of the authority
  * @param {string} reportTitle - The report title
- * @param {string} authorityId - The authority's ID
+ * @param {string} authorityId - The authority user ID
  */
 const notifyAuthorityUpdate = async (reportId, authorityUsername, reportTitle, authorityId) => {
   try {
-    // Get report author
+    // Get the report author
     const report = await prisma.report.findUnique({
       where: { id: reportId },
-      select: { authorId: true },
+      select: { authorId: true }
     });
 
-    if (!report) return;
-
-    // Don't notify if the authority is also the report author
-    if (report.authorId === authorityId) return;
-
-    const message = `${authorityUsername} updated "${reportTitle}"`;
-    const link = `/reports/${reportId}`;
-
-    await createNotification(report.authorId, 'REPORT_UPDATED', message, link, reportId);
-  } catch (error) {
-    console.error('Error notifying authority update:', error);
-  }
-};
-
-/**
- * Notify report author when report is closed
- * @param {string} reportId - The report ID
- * @param {string} reportTitle - The report title
- * @param {string} authorId - The report author's ID
- */
-const notifyReportClosed = async (reportId, reportTitle, authorId) => {
-  try {
-    const message = `Your report "${reportTitle}" has been closed`;
-    const link = `/reports/${reportId}`;
-
-    await createNotification(authorId, 'REPORT_CLOSED', message, link, reportId);
-  } catch (error) {
-    console.error('Error notifying report closed:', error);
-  }
-};
-
-/**
- * Get user's notifications with pagination
- * @param {string} userId - The user ID
- * @param {number} page - Page number (default: 1)
- * @param {number} limit - Items per page (default: 20)
- * @param {boolean} unreadOnly - Only return unread notifications (default: false)
- */
-const getUserNotifications = async (userId, page = 1, limit = 20, unreadOnly = false) => {
-  try {
-    const skip = (page - 1) * limit;
-    
-    const where = { userId };
-    if (unreadOnly) {
-      where.isRead = false;
+    if (!report) {
+      console.log(`Report ${reportId} not found`);
+      return;
     }
 
-    const [notifications, total] = await Promise.all([
-      prisma.notification.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.notification.count({ where }),
-    ]);
+    const message = `Authority ${authorityUsername} provided an update on your report "${reportTitle}"`;
 
-    return {
-      notifications,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+    await createNotification(
+      report.authorId,
+      'authority_update',
+      message,
+      reportId
+    );
+
+    console.log(`Notified report author about authority update for report ${reportId}`);
   } catch (error) {
-    console.error('Error getting user notifications:', error);
+    console.error('Error notifying authority update:', error);
     throw error;
   }
 };
 
 /**
- * Mark a notification as read
- * @param {string} notificationId - The notification ID
- * @param {string} userId - The user ID (for security)
+ * Notify report author when a report is closed/resolved
+ * @param {string} reportId - The report ID
+ * @param {string} reportTitle - The report title
+ * @param {string} userId - The user ID who closed the report
  */
-const markNotificationAsRead = async (notificationId, userId) => {
+const notifyReportClosed = async (reportId, reportTitle, userId) => {
   try {
-    const notification = await prisma.notification.updateMany({
-      where: {
-        id: notificationId,
-        userId, // Ensure user can only mark their own notifications as read
-      },
-      data: { isRead: true },
+    // Get the report author
+    const report = await prisma.report.findUnique({
+      where: { id: reportId },
+      select: { authorId: true }
     });
-    return notification;
+
+    if (!report) {
+      console.log(`Report ${reportId} not found`);
+      return;
+    }
+
+    // Don't notify if the author is the one who closed it
+    if (report.authorId === userId) {
+      console.log(`Report author closed their own report ${reportId}, no notification needed`);
+      return;
+    }
+
+    const message = `Your report "${reportTitle}" has been resolved`;
+
+    await createNotification(
+      report.authorId,
+      'report_resolved',
+      message,
+      reportId
+    );
+
+    console.log(`Notified report author about report closure for report ${reportId}`);
   } catch (error) {
-    console.error('Error marking notification as read:', error);
+    console.error('Error notifying report closure:', error);
     throw error;
-  }
-};
-
-/**
- * Mark all notifications as read for a user
- * @param {string} userId - The user ID
- */
-const markAllNotificationsAsRead = async (userId) => {
-  try {
-    const result = await prisma.notification.updateMany({
-      where: { userId, isRead: false },
-      data: { isRead: true },
-    });
-    return result;
-  } catch (error) {
-    console.error('Error marking all notifications as read:', error);
-    throw error;
-  }
-};
-
-/**
- * Get unread notification count for a user
- * @param {string} userId - The user ID
- */
-const getUnreadCount = async (userId) => {
-  try {
-    const count = await prisma.notification.count({
-      where: {
-        userId,
-        isRead: false,
-      },
-    });
-    return count;
-  } catch (error) {
-    console.error('Error getting unread count:', error);
-    throw error;
-  }
-};
-
-/**
- * Notify all users in a city when a new alert is created
- * @param {string} cityId - The city ID
- * @param {string} alertId - The alert ID
- * @param {string} alertTitle - The alert title
- * @param {string} creatorUsername - The alert creator's username
- */
-const notifyAlertCreated = async (cityId, alertId, alertTitle, creatorUsername) => {
-  try {
-    // Get all users in the city (excluding the creator)
-    const users = await prisma.user.findMany({
-      where: {
-        cityId,
-        isBanned: false,
-      },
-      select: { id: true },
-    });
-
-    if (users.length === 0) return;
-
-    const userIds = users.map(user => user.id);
-    const message = `New alert: "${alertTitle}" by ${creatorUsername}`;
-    const link = `/alerts`;
-
-    await createBulkNotifications(userIds, 'ALERT_CREATED', message, link, null, alertId);
-  } catch (error) {
-    console.error('Error notifying users of new alert:', error);
   }
 };
 
 module.exports = {
-  createNotification,
-  createBulkNotifications,
   notifyAuthoritiesOfNewReport,
-  notifyCommentAdded,
   notifyAuthorityUpdate,
-  notifyReportClosed,
-  notifyAlertCreated,
-  getUserNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  getUnreadCount,
+  notifyReportClosed
 };

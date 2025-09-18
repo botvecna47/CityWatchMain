@@ -854,8 +854,8 @@ const deleteReport = async (req, res) => {
     // Create audit log entry
     await prisma.auditLog.create({
       data: {
-        actorId: currentReport.authorId,
-        actorRole: currentReport.author.role,
+        actorId: adminId,
+        actorRole: 'admin',
         action: 'admin_delete_report',
         actionType: 'REPORT_DELETE',
         targetType: 'report',

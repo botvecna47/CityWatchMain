@@ -1,103 +1,75 @@
-const {
-  getUserNotifications,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
-  getUnreadCount,
-} = require('../services/notificationService');
+const { 
+  getUserNotifications, 
+  markNotificationsAsRead, 
+  getUnreadCount 
+} = require('../services/notifications');
 
 /**
  * Get user's notifications with pagination
- * GET /api/notifications
  */
 const getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const unreadOnly = req.query.unreadOnly === 'true';
+    const { page = 1, limit = 20, unreadOnly = false } = req.query;
+    
+    const offset = (page - 1) * limit;
+    const options = {
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      unreadOnly: unreadOnly === 'true'
+    };
 
-    // Validate pagination parameters
-    if (page < 1 || limit < 1 || limit > 100) {
-      return res.status(400).json({
-        error: 'Invalid pagination parameters. Page must be >= 1, limit must be between 1 and 100.',
-      });
-    }
-
-    const result = await getUserNotifications(userId, page, limit, unreadOnly);
+    const notifications = await getUserNotifications(userId, options);
 
     res.json({
-      success: true,
-      data: result,
+      notifications,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        hasMore: notifications.length === parseInt(limit)
+      }
     });
   } catch (error) {
     console.error('Error getting notifications:', error);
-    res.status(500).json({
-      error: 'Failed to fetch notifications',
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
 /**
- * Mark a single notification as read
- * PATCH /api/notifications/:id/read
+ * Mark a specific notification as read
  */
 const markAsRead = async (req, res) => {
   try {
-    const { id } = req.params;
     const userId = req.user.id;
+    const { id } = req.params;
 
-    if (!id) {
-      return res.status(400).json({
-        error: 'Notification ID is required',
-      });
-    }
+    await markNotificationsAsRead(userId, [id]);
 
-    const result = await markNotificationAsRead(id, userId);
-
-    if (result.count === 0) {
-      return res.status(404).json({
-        error: 'Notification not found or already marked as read',
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Notification marked as read',
-    });
+    res.json({ message: 'Notification marked as read' });
   } catch (error) {
     console.error('Error marking notification as read:', error);
-    res.status(500).json({
-      error: 'Failed to mark notification as read',
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
 /**
- * Mark all notifications as read for the current user
- * PATCH /api/notifications/read-all
+ * Mark all notifications as read for the user
  */
 const markAllAsRead = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const result = await markAllNotificationsAsRead(userId);
+    await markNotificationsAsRead(userId, []);
 
-    res.json({
-      success: true,
-      message: `${result.count} notifications marked as read`,
-      count: result.count,
-    });
+    res.json({ message: 'All notifications marked as read' });
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
-    res.status(500).json({
-      error: 'Failed to mark all notifications as read',
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
 /**
- * Get unread notification count
- * GET /api/notifications/unread-count
+ * Get unread notification count for the user
  */
 const getUnreadNotificationCount = async (req, res) => {
   try {
@@ -105,15 +77,10 @@ const getUnreadNotificationCount = async (req, res) => {
 
     const count = await getUnreadCount(userId);
 
-    res.json({
-      success: true,
-      count,
-    });
+    res.json({ unreadCount: count });
   } catch (error) {
     console.error('Error getting unread count:', error);
-    res.status(500).json({
-      error: 'Failed to get unread count',
-    });
+    res.status(500).json({ error: 'Internal server error' });
   }
 };
 
@@ -121,5 +88,5 @@ module.exports = {
   getNotifications,
   markAsRead,
   markAllAsRead,
-  getUnreadNotificationCount,
+  getUnreadNotificationCount
 };

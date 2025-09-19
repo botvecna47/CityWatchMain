@@ -71,17 +71,7 @@ const NotificationDropdown = () => {
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-700 hover:text-blue-600 focus:outline-none focus:text-blue-600 transition-colors"
       >
-        <img 
-          src="http://localhost:5000/assets/icons/bell.png" 
-          alt="Notifications" 
-          className="w-6 h-6"
-          onError={(e) => {
-            // Fallback to SVG if image fails to load
-            e.target.style.display = 'none';
-            e.target.nextSibling.style.display = 'block';
-          }}
-        />
-        <svg className="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM4 19h6v-2H4v2z" />
         </svg>
         {unreadCount > 0 && (

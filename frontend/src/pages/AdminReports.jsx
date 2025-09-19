@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Link } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config/api';
+import AdminNavigation from '../components/AdminNavigation';
 import {
   FileText,
   Search,
@@ -10,7 +11,6 @@ import {
   Trash2,
   Eye,
   RefreshCw,
-  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   AlertTriangle
@@ -212,28 +212,22 @@ const AdminReports = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Admin Navigation */}
+      <AdminNavigation />
+
+      {/* Page Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <Link
-                to="/dashboard"
-                className="inline-flex items-center text-gray-600 hover:text-gray-900 mr-4"
-              >
-                <ArrowLeft className="w-5 h-5 mr-1" />
-                Back to Dashboard
-              </Link>
-              <div className="flex items-center">
-                <div className="p-2 bg-primary-100 rounded-xl mr-3">
-                  <FileText className="w-6 h-6 text-primary-600" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Report Management</h1>
-                  <p className="text-sm text-gray-500">
-                    Manage and moderate community reports
-                  </p>
-                </div>
+              <div className="p-2 bg-primary-100 rounded-xl mr-3">
+                <FileText className="w-6 h-6 text-primary-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Report Management</h1>
+                <p className="text-sm text-gray-500">
+                  Manage and moderate community reports
+                </p>
               </div>
             </div>
           </div>

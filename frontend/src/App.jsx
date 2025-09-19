@@ -6,6 +6,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
 import AIAssistant from './components/AIAssistant';
 import Home from './pages/Home';
@@ -91,33 +92,33 @@ function App() {
             <Route 
               path="/admin/dashboard" 
               element={
-                <ProtectedRoute>
+                <RoleProtectedRoute allowedRoles={['admin']}>
                   <AdminDashboard />
-                </ProtectedRoute>
+                </RoleProtectedRoute>
               } 
             />
             <Route 
               path="/admin/users" 
               element={
-                <ProtectedRoute>
+                <RoleProtectedRoute allowedRoles={['admin']}>
                   <AdminUsers />
-                </ProtectedRoute>
+                </RoleProtectedRoute>
               } 
             />
             <Route 
               path="/admin/reports" 
               element={
-                <ProtectedRoute>
+                <RoleProtectedRoute allowedRoles={['admin']}>
                   <AdminReports />
-                </ProtectedRoute>
+                </RoleProtectedRoute>
               } 
             />
             <Route 
               path="/admin/settings" 
               element={
-                <ProtectedRoute>
+                <RoleProtectedRoute allowedRoles={['admin']}>
                   <AdminSettings />
-                </ProtectedRoute>
+                </RoleProtectedRoute>
               } 
             />
             <Route 

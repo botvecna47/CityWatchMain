@@ -1,16 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { Link } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config/api';
+import AdminNavigation from '../components/AdminNavigation';
 import {
   Settings,
-  ArrowLeft,
   Shield,
   Database,
-  FileText,
-  Users,
   Activity,
+  FileText,
   RefreshCw
 } from 'lucide-react';
 
@@ -78,28 +76,22 @@ const AdminSettings = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {/* Admin Navigation */}
+      <AdminNavigation />
+
+      {/* Page Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <Link
-                to="/dashboard"
-                className="inline-flex items-center text-gray-600 hover:text-gray-900 mr-4"
-              >
-                <ArrowLeft className="w-5 h-5 mr-1" />
-                Back to Dashboard
-              </Link>
-              <div className="flex items-center">
-                <div className="p-2 bg-primary-100 rounded-xl mr-3">
-                  <Settings className="w-6 h-6 text-primary-600" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">System Settings</h1>
-                  <p className="text-sm text-gray-500">
-                    System configuration and audit logs
-                  </p>
-                </div>
+              <div className="p-2 bg-primary-100 rounded-xl mr-3">
+                <Settings className="w-6 h-6 text-primary-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">System Settings</h1>
+                <p className="text-sm text-gray-500">
+                  System configuration and audit logs
+                </p>
               </div>
             </div>
           </div>
@@ -158,31 +150,6 @@ const AdminSettings = () => {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Link to="/admin/users">
-              <button className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                <Users className="w-5 h-5 text-gray-600 mr-2" />
-                <span className="text-sm font-medium text-gray-700">Manage Users</span>
-              </button>
-            </Link>
-            <Link to="/admin/reports">
-              <button className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-                <FileText className="w-5 h-5 text-gray-600 mr-2" />
-                <span className="text-sm font-medium text-gray-700">Manage Reports</span>
-              </button>
-            </Link>
-            <button 
-              onClick={() => window.location.reload()}
-              className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-            >
-              <RefreshCw className="w-5 h-5 text-gray-600 mr-2" />
-              <span className="text-sm font-medium text-gray-700">Refresh System</span>
-            </button>
-          </div>
-        </div>
 
         {/* Audit Logs */}
         <div className="bg-white rounded-xl border border-gray-200">

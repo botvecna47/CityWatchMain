@@ -30,11 +30,27 @@ ChartJS.register(
 );
 
 const AnalyticsCharts = () => {
-  const { makeAuthenticatedRequest } = useAuth();
+  const { makeAuthenticatedRequest, user } = useAuth();
   const [analyticsData, setAnalyticsData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Check if user has admin role
+  if (!user || user.role !== 'admin') {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+          <div className="h-64 bg-red-50 rounded-xl flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-red-500 text-4xl mb-4">🚫</div>
+              <p className="text-red-600">Access denied. Admin privileges required.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -54,28 +70,81 @@ const AnalyticsCharts = () => {
         makeAuthenticatedRequest(API_ENDPOINTS.ANALYTICS_ALERTS)
       ]);
 
-      if (dashboardRes.ok && usersRes.ok && reportsRes.ok && eventsRes.ok && alertsRes.ok) {
-        const [dashboardData, usersData, reportsData, eventsData, alertsData] = await Promise.all([
-          dashboardRes.json(),
-          usersRes.json(),
-          reportsRes.json(),
-          eventsRes.json(),
-          alertsRes.json()
-        ]);
+      // Check each response individually and log specific errors
+      const responses = [
+        { name: 'Dashboard', res: dashboardRes },
+        { name: 'Users', res: usersRes },
+        { name: 'Reports', res: reportsRes },
+        { name: 'Events', res: eventsRes },
+        { name: 'Alerts', res: alertsRes }
+      ];
 
-        setAnalyticsData({
-          overview: dashboardData.data,
-          users: usersData.data,
-          reports: reportsData.data,
-          events: eventsData.data,
-          alerts: alertsData.data
-        });
-      } else {
-        throw new Error('Failed to fetch analytics data');
+      const failedResponses = responses.filter(r => !r.res.ok);
+      if (failedResponses.length > 0) {
+        console.error('Failed analytics endpoints:', failedResponses.map(r => ({
+          name: r.name,
+          status: r.res.status,
+          statusText: r.res.statusText
+        })));
+        
+        // Try to get error details from failed responses
+        const errorDetails = await Promise.all(
+          failedResponses.map(async (r) => {
+            try {
+              const errorData = await r.res.json();
+              return { name: r.name, error: errorData };
+            } catch {
+              return { name: r.name, error: 'Could not parse error response' };
+            }
+          })
+        );
+        
+        console.error('Error details:', errorDetails);
+        
+        // If all endpoints failed, throw an error
+        if (failedResponses.length === responses.length) {
+          throw new Error(`Failed to fetch all analytics data: ${failedResponses.map(r => r.name).join(', ')}`);
+        }
+        
+        // If only some endpoints failed, continue with available data
+        console.warn(`Some analytics endpoints failed, continuing with available data`);
       }
+
+      // Parse successful responses only
+      const successfulResponses = responses.filter(r => r.res.ok);
+      const parsedData = await Promise.all(
+        successfulResponses.map(async (r) => {
+          const data = await r.res.json();
+          return { name: r.name, data: data.data };
+        })
+      );
+
+      // Build analytics data object with available data
+      const analyticsDataObj = {};
+      parsedData.forEach(({ name, data }) => {
+        switch (name) {
+          case 'Dashboard':
+            analyticsDataObj.overview = data;
+            break;
+          case 'Users':
+            analyticsDataObj.users = data;
+            break;
+          case 'Reports':
+            analyticsDataObj.reports = data;
+            break;
+          case 'Events':
+            analyticsDataObj.events = data;
+            break;
+          case 'Alerts':
+            analyticsDataObj.alerts = data;
+            break;
+        }
+      });
+
+      setAnalyticsData(analyticsDataObj);
     } catch (error) {
       console.error('Error fetching analytics data:', error);
-      setError('Failed to load analytics data');
+      setError(`Failed to load analytics data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -121,13 +190,44 @@ const AnalyticsCharts = () => {
     return null;
   }
 
-  // Chart configurations
+  // Check if we have any data at all
+  const hasAnyData = Object.keys(analyticsData).length > 0;
+  if (!hasAnyData) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+          <div className="h-64 bg-yellow-50 rounded-xl flex items-center justify-center">
+            <div className="text-center">
+              <div className="text-yellow-500 text-4xl mb-4">📊</div>
+              <p className="text-yellow-600 mb-4">No analytics data available</p>
+              <button
+                onClick={fetchAnalyticsData}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Check for missing data sections and show warning
+  const missingSections = [];
+  if (!analyticsData.overview) missingSections.push('Overview');
+  if (!analyticsData.users) missingSections.push('Users');
+  if (!analyticsData.reports) missingSections.push('Reports');
+  if (!analyticsData.events) missingSections.push('Events');
+  if (!analyticsData.alerts) missingSections.push('Alerts');
+
+  // Chart configurations with defensive programming
   const reportsByStatusConfig = {
     type: 'doughnut',
     data: {
-      labels: Object.keys(analyticsData.reports.byStatus),
+      labels: analyticsData.reports?.byStatus ? Object.keys(analyticsData.reports.byStatus) : [],
       datasets: [{
-        data: Object.values(analyticsData.reports.byStatus),
+        data: analyticsData.reports?.byStatus ? Object.values(analyticsData.reports.byStatus) : [],
         backgroundColor: [
           '#EF4444', // Red for OPEN
           '#F59E0B', // Amber for IN_PROGRESS
@@ -156,10 +256,10 @@ const AnalyticsCharts = () => {
   const reportsByCategoryConfig = {
     type: 'bar',
     data: {
-      labels: Object.keys(analyticsData.reports.byCategory),
+      labels: analyticsData.reports?.byCategory ? Object.keys(analyticsData.reports.byCategory) : [],
       datasets: [{
         label: 'Number of Reports',
-        data: Object.values(analyticsData.reports.byCategory),
+        data: analyticsData.reports?.byCategory ? Object.values(analyticsData.reports.byCategory) : [],
         backgroundColor: '#3B82F6',
         borderColor: '#1D4ED8',
         borderWidth: 1
@@ -188,9 +288,9 @@ const AnalyticsCharts = () => {
   const usersByRoleConfig = {
     type: 'doughnut',
     data: {
-      labels: Object.keys(analyticsData.users.byRole),
+      labels: analyticsData.users?.byRole ? Object.keys(analyticsData.users.byRole) : [],
       datasets: [{
-        data: Object.values(analyticsData.users.byRole),
+        data: analyticsData.users?.byRole ? Object.values(analyticsData.users.byRole) : [],
         backgroundColor: [
           '#8B5CF6', // Purple for CITIZEN
           '#F59E0B', // Amber for AUTHORITY
@@ -218,12 +318,12 @@ const AnalyticsCharts = () => {
   const reportsOverTimeConfig = {
     type: 'line',
     data: {
-      labels: analyticsData.reports.overTime.map(item => 
+      labels: analyticsData.reports?.overTime ? analyticsData.reports.overTime.map(item => 
         new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      ),
+      ) : [],
       datasets: [{
         label: 'Reports Created',
-        data: analyticsData.reports.overTime.map(item => item.count),
+        data: analyticsData.reports?.overTime ? analyticsData.reports.overTime.map(item => item.count) : [],
         borderColor: '#3B82F6',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
         borderWidth: 2,
@@ -254,12 +354,12 @@ const AnalyticsCharts = () => {
   const usersOverTimeConfig = {
     type: 'line',
     data: {
-      labels: analyticsData.users.overTime.map(item => 
+      labels: analyticsData.users?.overTime ? analyticsData.users.overTime.map(item => 
         new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-      ),
+      ) : [],
       datasets: [{
         label: 'New Users',
-        data: analyticsData.users.overTime.map(item => item.count),
+        data: analyticsData.users?.overTime ? analyticsData.users.overTime.map(item => item.count) : [],
         borderColor: '#10B981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         borderWidth: 2,
@@ -290,10 +390,10 @@ const AnalyticsCharts = () => {
   const reportsByCityConfig = {
     type: 'bar',
     data: {
-      labels: Object.keys(analyticsData.reports.byCity),
+      labels: analyticsData.reports?.byCity ? Object.keys(analyticsData.reports.byCity) : [],
       datasets: [{
         label: 'Number of Reports',
-        data: Object.values(analyticsData.reports.byCity),
+        data: analyticsData.reports?.byCity ? Object.values(analyticsData.reports.byCity) : [],
         backgroundColor: '#F59E0B',
         borderColor: '#D97706',
         borderWidth: 1
@@ -328,6 +428,26 @@ const AnalyticsCharts = () => {
 
   return (
     <div className="space-y-6">
+      {/* Warning for missing data sections */}
+      {missingSections.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="bg-yellow-50 border border-yellow-200 rounded-xl p-4"
+        >
+          <div className="flex items-center">
+            <div className="text-yellow-500 text-xl mr-3">⚠️</div>
+            <div>
+              <p className="text-yellow-800 font-medium">Partial Data Available</p>
+              <p className="text-yellow-700 text-sm">
+                Some analytics sections are unavailable: {missingSections.join(', ')}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Tab Navigation */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -385,20 +505,20 @@ const AnalyticsCharts = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-blue-50 rounded-xl p-4">
                 <div className="text-2xl font-bold text-blue-600">
-                  {analyticsData.users.verified || 0}
+                  {analyticsData.users?.verified || 0}
                 </div>
                 <div className="text-sm text-blue-600">Verified Users</div>
               </div>
               <div className="bg-red-50 rounded-xl p-4">
                 <div className="text-2xl font-bold text-red-600">
-                  {analyticsData.users.banned || 0}
+                  {analyticsData.users?.banned || 0}
                 </div>
                 <div className="text-sm text-red-600">Banned Users</div>
               </div>
               <div className="bg-green-50 rounded-xl p-4">
                 <div className="text-2xl font-bold text-green-600">
-                  {analyticsData.overview.totalUsers > 0 
-                    ? Math.round((analyticsData.users.verified / analyticsData.overview.totalUsers) * 100)
+                  {analyticsData.overview?.totalUsers > 0 
+                    ? Math.round(((analyticsData.users?.verified || 0) / analyticsData.overview.totalUsers) * 100)
                     : 0}%
                 </div>
                 <div className="text-sm text-green-600">Verification Rate</div>
@@ -430,23 +550,23 @@ const AnalyticsCharts = () => {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Performance Indicators</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-4 text-white">
-            <div className="text-2xl font-bold">{analyticsData.overview.avgResolutionTime || 0}</div>
+            <div className="text-2xl font-bold">{analyticsData.overview?.avgResolutionTime || 0}</div>
             <div className="text-sm opacity-90">Avg Resolution Time (Days)</div>
           </div>
           <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-4 text-white">
             <div className="text-2xl font-bold">
-              {analyticsData.overview.totalReports > 0 
-                ? Math.round((analyticsData.overview.resolvedReports / analyticsData.overview.totalReports) * 100)
+              {analyticsData.overview?.totalReports > 0 
+                ? Math.round(((analyticsData.overview?.resolvedReports || 0) / analyticsData.overview.totalReports) * 100)
                 : 0}%
             </div>
             <div className="text-sm opacity-90">Resolution Rate</div>
           </div>
           <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-4 text-white">
-            <div className="text-2xl font-bold">{analyticsData.overview.totalEvents || 0}</div>
+            <div className="text-2xl font-bold">{analyticsData.overview?.totalEvents || 0}</div>
             <div className="text-sm opacity-90">Total Events</div>
           </div>
           <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-4 text-white">
-            <div className="text-2xl font-bold">{analyticsData.overview.totalAlerts || 0}</div>
+            <div className="text-2xl font-bold">{analyticsData.overview?.totalAlerts || 0}</div>
             <div className="text-sm opacity-90">Active Alerts</div>
           </div>
         </div>

@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { Link } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config/api';
-import Button from '../components/ui/Button';
 import AnalyticsCharts from '../components/charts/AnalyticsCharts';
+import AdminNavigation from '../components/AdminNavigation';
 import {
   Users,
   FileText,
   Shield,
-  TrendingUp,
-  Settings,
-  LogOut,
-  Plus
+  TrendingUp
 } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -28,9 +24,6 @@ const AdminDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
 
-  const handleLogout = () => {
-    logout();
-  };
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -80,35 +73,8 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-primary-600 rounded-xl flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-white" />
-                </div>
-              </div>
-              <div className="ml-3">
-                <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-500">Welcome back, {user?.username}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={handleLogout}
-                variant="secondary"
-                size="sm"
-                leftIcon={<LogOut className="w-4 h-4" />}
-              >
-                Logout
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Admin Navigation */}
+      <AdminNavigation />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
@@ -165,32 +131,6 @@ const AdminDashboard = () => {
         {/* Analytics Charts */}
         <div className="mb-8">
           <AnalyticsCharts />
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link to="/admin/users">
-                <Button variant="outline" fullWidth leftIcon={<Users className="w-4 h-4" />}>
-                  Manage Users
-                </Button>
-              </Link>
-              <Link to="/admin/reports">
-                <Button variant="outline" fullWidth leftIcon={<FileText className="w-4 h-4" />}>
-                  Manage Reports
-                </Button>
-              </Link>
-              <Link to="/admin/settings">
-                <Button variant="outline" fullWidth leftIcon={<Settings className="w-4 h-4" />}>
-                  System Settings
-                </Button>
-              </Link>
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const analyticsController = require('../controllers/analyticsController');
 const authMiddleware = require('../middleware/auth');
-const { requireAdmin } = require('../middleware/roleAuth');
+const { requireAdmin, requireAuthority } = require('../middleware/roleAuth');
 
 // Public stats (no authentication required)
 router.get('/public/stats', analyticsController.getPublicStats);
@@ -25,7 +25,7 @@ router.get('/events', requireAdmin, analyticsController.getEventAnalytics);
 // Alert analytics (admin only)
 router.get('/alerts', requireAdmin, analyticsController.getAlertAnalytics);
 
-// Authority dashboard stats (accessible by authority users)
-router.get('/authority/dashboard', analyticsController.getAuthorityDashboardStats);
+// Authority dashboard stats (accessible by authority and admin users)
+router.get('/authority/dashboard', requireAuthority, analyticsController.getAuthorityDashboardStats);
 
 module.exports = router;

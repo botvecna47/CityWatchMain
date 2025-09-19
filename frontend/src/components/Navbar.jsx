@@ -176,7 +176,7 @@ const Navbar = () => {
                 </Link>
               </>
             )}
-          </div>
+          </motion.div>
 
           {/* Mobile menu button */}
           <div className="md:hidden">

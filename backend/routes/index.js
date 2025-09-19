@@ -12,6 +12,5 @@ router.use('/notifications', require('./notifications'));
 router.use('/admin', require('./admin'));
 router.use('/alerts', require('./alerts'));
 router.use('/events', require('./events'));
-router.use('/public', require('./public'));
 
 module.exports = router;

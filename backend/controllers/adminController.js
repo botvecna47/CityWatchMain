@@ -1,5 +1,4 @@
 const prisma = require('../services/database');
-const aiService = require('../services/aiService');
 
 // Get all users with pagination
 const getUsers = async (req, res) => {
@@ -188,20 +187,15 @@ const toggleUserBan = async (req, res) => {
   }
 };
 
-// Create new admin or authority user
-const createUser = async (req, res) => {
+// Create new admin user
+const createAdmin = async (req, res) => {
   try {
-    const { username, email, password, cityId, role } = req.body;
+    const { username, email, password, cityId } = req.body;
     const adminId = req.user.id;
 
     // Validate required fields
-    if (!username || !email || !password || !role) {
-      return res.status(400).json({ error: 'Username, email, password, and role are required' });
-    }
-
-    // Validate role
-    if (!['admin', 'authority'].includes(role)) {
-      return res.status(400).json({ error: 'Role must be either admin or authority' });
+    if (!username || !email || !password) {
+      return res.status(400).json({ error: 'Username, email, and password are required' });
     }
 
     // Check if user already exists
@@ -222,16 +216,15 @@ const createUser = async (req, res) => {
     const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
-    const newUser = await prisma.user.create({
+    // Create admin user
+    const newAdmin = await prisma.user.create({
       data: {
         username,
         email,
         password: hashedPassword,
-        role,
+        role: 'admin',
         cityId: cityId || null,
-        isBanned: false,
-        isVerified: true // Admin-created users are automatically verified
+        isBanned: false
       },
       include: {
         city: {
@@ -247,33 +240,32 @@ const createUser = async (req, res) => {
     // Create audit log
     await prisma.auditLog.create({
       data: {
-        actorId: newUser.id,
-        actorRole: role,
-        action: `New ${role} user created`,
-        actionType: 'USER_CREATE',
+        actorId: newAdmin.id,
+        actorRole: 'admin',
+        action: 'New admin user created',
+        actionType: 'USER_PROMOTE',
         targetType: 'USER',
-        targetId: newUser.id,
+        targetId: newAdmin.id,
         performedById: adminId,
-        reason: `${role} user created by ${req.user.username}`
+        reason: `Admin user created by ${req.user.username}`
       }
     });
 
     res.status(201).json({
-      message: `${role} user created successfully`,
+      message: 'Admin user created successfully',
       user: {
-        id: newUser.id,
-        username: newUser.username,
-        email: newUser.email,
-        role: newUser.role,
-        city: newUser.city,
-        isBanned: newUser.isBanned,
-        isVerified: newUser.isVerified,
-        createdAt: newUser.createdAt
+        id: newAdmin.id,
+        username: newAdmin.username,
+        email: newAdmin.email,
+        role: newAdmin.role,
+        city: newAdmin.city,
+        isBanned: newAdmin.isBanned,
+        createdAt: newAdmin.createdAt
       }
     });
   } catch (error) {
-    console.error('Create user error:', error);
-    res.status(500).json({ error: `Failed to create ${req.body.role || 'user'}` });
+    console.error('Create admin error:', error);
+    res.status(500).json({ error: 'Failed to create admin user' });
   }
 };
 
@@ -566,33 +558,14 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
-// Get AI insights
-const getAIInsights = async (req, res) => {
-  try {
-    const insights = await aiService.generateInsights();
-    
-    res.json({
-      success: true,
-      insights
-    });
-  } catch (error) {
-    console.error('Error fetching AI insights:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch AI insights'
-    });
-  }
-};
-
 module.exports = {
   getUsers,
   updateUserRole,
   toggleUserBan,
-  createUser,
+  createAdmin,
   getReports,
   deleteReport,
   restoreReport,
   getAuditLogs,
-  getDashboardStats,
-  getAIInsights
+  getDashboardStats
 };

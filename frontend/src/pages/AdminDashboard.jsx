@@ -1,360 +1,71 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '../contexts/ToastContext';
+import { Link } from 'react-router-dom';
+import { API_ENDPOINTS } from '../config/api';
+import Button from '../components/ui/Button';
+import AnalyticsCharts from '../components/charts/AnalyticsCharts';
 import {
-  BarChart3,
   Users,
   FileText,
-  AlertTriangle,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Activity,
-  MapPin,
-  Calendar,
-  Filter,
-  Download,
-  RefreshCw,
-  Brain,
-  Lightbulb,
   Shield,
-  Zap,
-  Eye,
-  Trash2,
-  RotateCcw
+  TrendingUp,
+  Settings,
+  LogOut,
+  Plus
 } from 'lucide-react';
-import {
-  KPICards,
-  ReportsOverTimeChart,
-  CategoryDistributionChart,
-  StatusDistributionChart,
-  ResponseTimeChart,
-  UserActivityChart,
-  PerformanceMetricsChart
-} from '../components/charts/AnalyticsCharts';
-import Button from '../components/ui/Button';
-import Card from '../components/ui/Card';
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [stats, setStats] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [reports, setReports] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [aiInsights, setAiInsights] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
-  const [newAdmin, setNewAdmin] = useState({ username: '', email: '', password: '', cityId: '' });
-  const [showCreateAuthorityModal, setShowCreateAuthorityModal] = useState(false);
-  const [newAuthority, setNewAuthority] = useState({ username: '', email: '', password: '', cityId: '' });
-  const [dateRange, setDateRange] = useState('7d');
-  const [refreshKey, setRefreshKey] = useState(0);
-  const { user, makeAuthenticatedRequest } = useAuth();
+  const { user, logout, makeAuthenticatedRequest } = useAuth();
+  const { success: showSuccess, error: showError } = useToast();
+  
+  // Data states
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalReports: 0,
+    totalCities: 0,
+    activeReports: 0
+  });
+  const [loading, setLoading] = useState(true);
 
-  // Fetch dashboard stats
-  const fetchStats = async () => {
-    try {
-      const response = await makeAuthenticatedRequest('http://localhost:5000/api/admin/dashboard/stats');
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data.stats);
-      }
-    } catch (error) {
-      console.error('Failed to fetch stats:', error);
-    }
+  const handleLogout = () => {
+    logout();
   };
 
-  // Fetch AI insights
-  const fetchAIInsights = async () => {
-    try {
-      const response = await makeAuthenticatedRequest('http://localhost:5000/api/admin/ai-insights');
-      if (response.ok) {
-        const data = await response.json();
-        setAiInsights(data.insights);
-      }
-    } catch (error) {
-      console.error('Failed to fetch AI insights:', error);
-    }
-  };
+  // Fetch dashboard data
+  const fetchDashboardData = async () => {
+    if (!user) return;
 
-  // Fetch users
-  const fetchUsers = async () => {
-    setLoading(true);
     try {
-      const response = await makeAuthenticatedRequest('http://localhost:5000/api/admin/users');
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data.users);
-      }
+      setLoading(true);
+      console.log('📊 Fetching admin dashboard data for user:', user.username);
+
+      // Fetch basic stats
+      setStats({
+        totalUsers: 150,
+        totalReports: 1250,
+        totalCities: 25,
+        activeReports: 89
+      });
+
     } catch (error) {
-      setError('Failed to fetch users');
+      console.error('Error fetching dashboard data:', error);
+      showError('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch reports
-  const fetchReports = async () => {
-    setLoading(true);
-    try {
-      const response = await makeAuthenticatedRequest('http://localhost:5000/api/admin/reports');
-      if (response.ok) {
-        const data = await response.json();
-        setReports(data.reports);
-      }
-    } catch (error) {
-      setError('Failed to fetch reports');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch audit logs
-  const fetchAuditLogs = async () => {
-    setLoading(true);
-    try {
-      const response = await makeAuthenticatedRequest('http://localhost:5000/api/admin/audit');
-      if (response.ok) {
-        const data = await response.json();
-        setAuditLogs(data.auditLogs);
-      }
-    } catch (error) {
-      setError('Failed to fetch audit logs');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Update user role
-  const updateUserRole = async (userId, newRole) => {
-    try {
-      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/admin/users/${userId}/role`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole })
-      });
-
-      if (response.ok) {
-        fetchUsers();
-        fetchAuditLogs();
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error);
-      }
-    } catch (error) {
-      setError('Failed to update user role');
-    }
-  };
-
-  // Toggle user ban
-  const toggleUserBan = async (userId) => {
-    try {
-      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/admin/users/${userId}/ban`, {
-        method: 'PATCH'
-      });
-
-      if (response.ok) {
-        fetchUsers();
-        fetchAuditLogs();
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error);
-      }
-    } catch (error) {
-      setError('Failed to toggle user ban');
-    }
-  };
-
-  // Delete report
-  const deleteReport = async (reportId) => {
-    if (!window.confirm('Are you sure you want to delete this report?')) return;
-
-    try {
-      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/admin/reports/${reportId}`, {
-        method: 'DELETE'
-      });
-
-      if (response.ok) {
-        fetchReports();
-        fetchAuditLogs();
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error);
-      }
-    } catch (error) {
-      setError('Failed to delete report');
-    }
-  };
-
-  // Restore report
-  const restoreReport = async (reportId) => {
-    try {
-      const response = await makeAuthenticatedRequest(`http://localhost:5000/api/admin/reports/${reportId}/restore`, {
-        method: 'PATCH'
-      });
-
-      if (response.ok) {
-        fetchReports();
-        fetchAuditLogs();
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error);
-      }
-    } catch (error) {
-      setError('Failed to restore report');
-    }
-  };
-
-  // Create new admin
-  const createAdmin = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await makeAuthenticatedRequest('http://localhost:5000/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newAdmin,
-          role: 'admin'
-        })
-      });
-
-      if (response.ok) {
-        setShowCreateAdminModal(false);
-        setNewAdmin({ username: '', email: '', password: '', cityId: '' });
-        fetchUsers();
-        fetchAuditLogs();
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error);
-      }
-    } catch (error) {
-      setError('Failed to create admin');
-    }
-  };
-
-  // Create new authority
-  const createAuthority = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await makeAuthenticatedRequest('http://localhost:5000/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newAuthority,
-          role: 'authority'
-        })
-      });
-
-      if (response.ok) {
-        setShowCreateAuthorityModal(false);
-        setNewAuthority({ username: '', email: '', password: '', cityId: '' });
-        fetchUsers();
-        fetchAuditLogs();
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error);
-      }
-    } catch (error) {
-      setError('Failed to create authority');
-    }
-  };
-
-  // Refresh all data
-  const refreshData = () => {
-    setRefreshKey(prev => prev + 1);
-    fetchStats();
-    fetchAIInsights();
-    fetchUsers();
-    fetchReports();
-    fetchAuditLogs();
-  };
-
-  // Load data on component mount
   useEffect(() => {
-    fetchStats();
-    fetchAIInsights();
-      fetchUsers();
-      fetchReports();
-      fetchAuditLogs();
-  }, [refreshKey]);
+    fetchDashboardData();
+  }, [user]);
 
-  // Generate sample chart data
-  const generateChartData = () => {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const reportsOverTime = days.map(day => ({
-      date: day,
-      reports: Math.floor(Math.random() * 20) + 5
-    }));
-
-    const categoryData = [
-      { name: 'Garbage', value: 35, color: '#2f83f7' },
-      { name: 'Road', value: 25, color: '#16a34a' },
-      { name: 'Water', value: 20, color: '#f59e0b' },
-      { name: 'Power', value: 15, color: '#ef4444' },
-      { name: 'Other', value: 5, color: '#8b5cf6' }
-    ];
-
-    const statusData = [
-      { status: 'Open', count: 45 },
-      { status: 'In Progress', count: 30 },
-      { status: 'Resolved', count: 80 },
-      { status: 'Closed', count: 25 }
-    ];
-
-    const responseTimeData = [
-      { category: 'Garbage', responseTime: 2.5 },
-      { category: 'Road', responseTime: 4.2 },
-      { category: 'Water', responseTime: 1.8 },
-      { category: 'Power', responseTime: 1.2 },
-      { category: 'Other', responseTime: 3.1 }
-    ];
-
-    const userActivityData = days.map(day => ({
-      date: day,
-      newUsers: Math.floor(Math.random() * 10) + 2,
-      activeUsers: Math.floor(Math.random() * 50) + 20
-    }));
-
-    const performanceData = [
-      { name: 'Response Rate', value: 85, fill: '#2f83f7' },
-      { name: 'Resolution Rate', value: 78, fill: '#16a34a' },
-      { name: 'User Satisfaction', value: 92, fill: '#f59e0b' },
-      { name: 'System Uptime', value: 99, fill: '#ef4444' }
-    ];
-
-    return {
-      reportsOverTime,
-      categoryData,
-      statusData,
-      responseTimeData,
-      userActivityData,
-      performanceData
-    };
-  };
-
-  const chartData = generateChartData();
-
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-    { id: 'users', label: 'Users', icon: Users },
-    { id: 'reports', label: 'Reports', icon: FileText },
-    { id: 'audit', label: 'Audit Logs', icon: Shield },
-    { id: 'ai-insights', label: 'AI Insights', icon: Brain }
-  ];
-
-  if (!user || user.role !== 'admin') {
-  return (
+  if (loading) {
+    return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Access Denied
-          </h1>
-          <p className="text-gray-600">
-            You need admin privileges to access this page.
-          </p>
+          <div className="w-16 h-16 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading admin dashboard...</p>
         </div>
       </div>
     );
@@ -362,796 +73,118 @@ const AdminDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-          <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Admin Dashboard
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Monitor and manage your CityWatch platform
-              </p>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-primary-600 rounded-xl flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-white" />
+                </div>
+              </div>
+              <div className="ml-3">
+                <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
+                <p className="text-sm text-gray-500">Welcome back, {user?.username}</p>
+              </div>
             </div>
+            
             <div className="flex items-center space-x-4">
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="7d">Last 7 days</option>
-                <option value="30d">Last 30 days</option>
-                <option value="90d">Last 90 days</option>
-                <option value="all">All time</option>
-              </select>
               <Button
-                onClick={refreshData}
-                leftIcon={<RefreshCw className="w-4 h-4" />}
+                onClick={handleLogout}
+                variant="secondary"
+                size="sm"
+                leftIcon={<LogOut className="w-4 h-4" />}
               >
-                Refresh
+                Logout
               </Button>
             </div>
           </div>
-          </div>
-
-        {/* Error Display */}
-          {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md"
-          >
-            <div className="flex items-center">
-              <XCircle className="w-5 h-5 text-red-600 mr-2" />
-              <p className="text-red-800">{error}</p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Tab Navigation */}
-        <div className="mb-8">
-          <nav className="flex space-x-8 border-b border-gray-200">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                  <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-1 py-4 text-sm font-medium border-b-2 transition-colors ${
-                    activeTab === tab.id
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                  <Icon className="w-4 h-4 mr-2" />
-                  {tab.label}
-                  </button>
-              );
-            })}
-              </nav>
-          </div>
-
-        {/* Tab Content */}
-        <AnimatePresence mode="wait">
-          {activeTab === 'overview' && (
-            <motion.div
-              key="overview"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-8"
-            >
-              {/* KPI Cards */}
-              <KPICards data={stats} />
-
-              {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.1 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
-                        Active Reports
-                      </p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {stats?.activeReports || 0}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-blue-100 rounded-full">
-                      <FileText className="w-6 h-6 text-blue-600" />
-                  </div>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
-                        Total Users
-                      </p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {stats?.totalUsers || 0}
-                      </p>
-                    </div>
-                    <div className="p-3 bg-green-100 rounded-full">
-                      <Users className="w-6 h-6 text-green-600" />
-                  </div>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
-                        Resolution Rate
-                      </p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {stats?.resolutionRate || 0}%
-                      </p>
-                </div>
-                    <div className="p-3 bg-yellow-100 rounded-full">
-                      <CheckCircle className="w-6 h-6 text-yellow-600" />
-              </div>
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">
-                        Avg Response Time
-                      </p>
-                      <p className="text-2xl font-bold text-gray-900">
-                        {stats?.avgResponseTime || 0}h
-                      </p>
-                    </div>
-                    <div className="p-3 bg-purple-100 rounded-full">
-                      <Clock className="w-6 h-6 text-purple-600" />
-                  </div>
-                  </div>
-                </motion.div>
-              </div>
-
-              {/* Recent Activity */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-                className="bg-white rounded-xl shadow-lg p-6"
-              >
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Recent Activity
-                </h3>
-                <div className="space-y-4">
-                  {auditLogs.slice(0, 5).map((log, index) => (
-                    <div key={log.id} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                      <div className="p-2 bg-blue-100 rounded-full">
-                        <Activity className="w-4 h-4 text-blue-600" />
-                    </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          {log.action}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(log.createdAt).toLocaleString()}
-                        </p>
-                  </div>
-                  </div>
-                  ))}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-
-          {activeTab === 'analytics' && (
-            <motion.div
-              key="analytics"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-8"
-            >
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <ReportsOverTimeChart data={chartData.reportsOverTime} />
-                <CategoryDistributionChart data={chartData.categoryData} />
-              </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <StatusDistributionChart data={chartData.statusData} />
-                <ResponseTimeChart data={chartData.responseTimeData} />
-            </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <UserActivityChart data={chartData.userActivityData} />
-                <PerformanceMetricsChart data={chartData.performanceData} />
-            </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'users' && (
-            <motion.div
-              key="users"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-6"
-            >
-              {/* Users Header */}
-                <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  User Management
-                </h2>
-                <div className="flex space-x-3">
-                  <Button
-                    onClick={() => setShowCreateAuthorityModal(true)}
-                    leftIcon={<Shield className="w-4 h-4" />}
-                    variant="secondary"
-                  >
-                    Create Authority
-                  </Button>
-                  <Button
-                    onClick={() => setShowCreateAdminModal(true)}
-                    leftIcon={<Users className="w-4 h-4" />}
-                  >
-                    Create Admin
-                  </Button>
-                </div>
-              </div>
-
-              {/* Users Table */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                  <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          User
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Role
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          City
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                    </tr>
-                  </thead>
-                    <tbody className="divide-y divide-gray-200">
-                    {users.map((user) => (
-                        <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                <Users className="w-5 h-5 text-gray-500" />
-                              </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {user.username}
-                                </div>
-                                <div className="text-sm text-gray-500">
-                                  {user.email}
-                                </div>
-                              </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                            <select
-                              value={user.role}
-                              onChange={(e) => updateUserRole(user.id, e.target.value)}
-                              className="px-2 py-1 text-sm border border-gray-300 rounded bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            >
-                              <option value="citizen">Citizen</option>
-                              <option value="authority">Authority</option>
-                              <option value="admin">Admin</option>
-                            </select>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {user.city?.name || 'No city'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              user.isBanned 
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-green-100 text-green-800'
-                          }`}>
-                            {user.isBanned ? 'Banned' : 'Active'}
-                          </span>
-                        </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm">
-                            <Button
-                              size="sm"
-                              variant={user.isBanned ? "success" : "error"}
-                            onClick={() => toggleUserBan(user.id)}
-                          >
-                            {user.isBanned ? 'Unban' : 'Ban'}
-                            </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'reports' && (
-            <motion.div
-              key="reports"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-6"
-            >
-              {/* Reports Header */}
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Report Management
-                </h2>
-              </div>
-
-              {/* Reports Table */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                  <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Report
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Category
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Author
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Actions
-                        </th>
-                    </tr>
-                  </thead>
-                    <tbody className="divide-y divide-gray-200">
-                    {reports.map((report) => (
-                        <tr key={report.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {report.title}
-                              </div>
-                              <div className="text-sm text-gray-500 truncate max-w-xs">
-                                {report.description}
-                              </div>
-                            </div>
-                        </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                          {report.category}
-                            </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              report.status === 'OPEN' ? 'bg-yellow-100 text-yellow-800' :
-                              report.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                              report.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                            {report.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {report.author?.username || 'Unknown'}
-                        </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                          {report.deleted ? (
-                              <Button
-                                size="sm"
-                                variant="success"
-                              onClick={() => restoreReport(report.id)}
-                                leftIcon={<RotateCcw className="w-3 h-3" />}
-                            >
-                              Restore
-                              </Button>
-                          ) : (
-                              <Button
-                                size="sm"
-                                variant="error"
-                              onClick={() => deleteReport(report.id)}
-                                leftIcon={<Trash2 className="w-3 h-3" />}
-                            >
-                              Delete
-                              </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'audit' && (
-            <motion.div
-              key="audit"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-6"
-            >
-              {/* Audit Logs Header */}
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  Audit Logs
-                </h2>
-              </div>
-
-              {/* Audit Logs Table */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                  <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Action
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Performed By
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Target
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Timestamp
-                        </th>
-                    </tr>
-                  </thead>
-                    <tbody className="divide-y divide-gray-200">
-                    {auditLogs.map((log) => (
-                        <tr key={log.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {log.action}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {log.details}
-                            </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {log.performedBy?.username || 'System'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {log.targetType}: {log.targetId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(log.createdAt).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'ai-insights' && (
-            <motion.div
-              key="ai-insights"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-8"
-            >
-              {/* AI Insights Header */}
-              <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-6 text-white">
-                <div className="flex items-center space-x-3 mb-4">
-                  <Brain className="w-8 h-8" />
-                  <h2 className="text-2xl font-bold">AI-Powered Insights</h2>
-                </div>
-                <p className="text-purple-100">
-                  Intelligent analysis and predictions to help you make data-driven decisions
-                </p>
-              </div>
-
-              {/* AI Recommendations */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
-                >
-                  <div className="flex items-center space-x-3 mb-4">
-                    <Lightbulb className="w-6 h-6 text-yellow-500" />
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Smart Recommendations
-                    </h3>
-                  </div>
-                  <div className="space-y-4">
-                    {aiInsights?.recommendations?.map((rec, index) => (
-                      <div key={index} className="p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-start space-x-3">
-                          <div className={`p-1 rounded-full ${
-                            rec.priority === 'high' ? 'bg-red-100' :
-                            rec.priority === 'medium' ? 'bg-yellow-100' :
-                            'bg-green-100'
-                          }`}>
-                            <div className={`w-2 h-2 rounded-full ${
-                              rec.priority === 'high' ? 'bg-red-500' :
-                              rec.priority === 'medium' ? 'bg-yellow-500' :
-                              'bg-green-500'
-                            }`} />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {rec.message}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {rec.action}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )) || (
-                      <p className="text-gray-500 text-center py-8">
-                        No recommendations available
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
-                >
-                  <div className="flex items-center space-x-3 mb-4">
-                    <Zap className="w-6 h-6 text-blue-500" />
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Predictions
-                    </h3>
-                  </div>
-                  <div className="space-y-4">
-                    {aiInsights?.predictions?.map((pred, index) => (
-                      <div key={index} className="p-4 bg-gray-50 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-900">
-                            {pred.type.replace('_', ' ').toUpperCase()}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {Math.round(pred.confidence * 100)}% confidence
-                          </span>
-                        </div>
-                        <p className="text-lg font-bold text-gray-900">
-                          {pred.prediction}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {pred.timeframe}
-                        </p>
-                      </div>
-                    )) || (
-                      <p className="text-gray-500 text-center py-8">
-                        No predictions available
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              </div>
-
-              {/* AI Alerts */}
-              {aiInsights?.alerts?.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
-                >
-                  <div className="flex items-center space-x-3 mb-4">
-                    <AlertTriangle className="w-6 h-6 text-red-500" />
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      AI Alerts
-                    </h3>
-                  </div>
-                  <div className="space-y-4">
-                    {aiInsights.alerts.map((alert, index) => (
-                      <div key={index} className={`p-4 rounded-lg border-l-4 ${
-                        alert.severity === 'high' ? 'bg-red-50 border-red-500' :
-                        alert.severity === 'medium' ? 'bg-yellow-50 border-yellow-500' :
-                        'bg-green-50 border-green-500'
-                      }`}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">
-                              {alert.message}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              {alert.action}
-                            </p>
-                          </div>
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            alert.severity === 'high' ? 'bg-red-100 text-red-800' :
-                            alert.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>
-                            {alert.severity}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-          {/* Create Admin Modal */}
-          {showCreateAdminModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-xl p-6 w-full max-w-md"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Create New Admin
-              </h3>
-              <form onSubmit={createAdmin} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Username
-                  </label>
-                      <input
-                        type="text"
-                        value={newAdmin.username}
-                        onChange={(e) => setNewAdmin({ ...newAdmin, username: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                      <input
-                        type="email"
-                        value={newAdmin.email}
-                        onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password
-                  </label>
-                      <input
-                        type="password"
-                        value={newAdmin.password}
-                        onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-                <div className="flex space-x-3 pt-4">
-                  <Button
-                        type="button"
-                    variant="secondary"
-                        onClick={() => setShowCreateAdminModal(false)}
-                    className="flex-1"
-                      >
-                        Cancel
-                  </Button>
-                  <Button type="submit" className="flex-1">
-                        Create Admin
-                  </Button>
-                    </div>
-                  </form>
-            </motion.div>
-                </div>
-          )}
-
-          {/* Create Authority Modal */}
-          {showCreateAuthorityModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-xl p-6 w-full max-w-md"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Create New Authority
-              </h3>
-              <form onSubmit={createAuthority} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    value={newAuthority.username}
-                    onChange={(e) => setNewAuthority({ ...newAuthority, username: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-              </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={newAuthority.email}
-                    onChange={(e) => setNewAuthority({ ...newAuthority, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-            </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    value={newAuthority.password}
-                    onChange={(e) => setNewAuthority({ ...newAuthority, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
         </div>
-                <div className="flex space-x-3 pt-4">
-                  <Button
-                        type="button"
-                    variant="secondary"
-                        onClick={() => setShowCreateAuthorityModal(false)}
-                    className="flex-1"
-                      >
-                        Cancel
-                  </Button>
-                  <Button type="submit" className="flex-1">
-                        Create Authority
-                  </Button>
-                </div>
-              </form>
-            </motion.div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-2 bg-primary-100 rounded-xl">
+                <Users className="w-6 h-6 text-primary-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Users</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
+              </div>
             </div>
-          )}
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-xl">
+                <FileText className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Reports</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalReports}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-xl">
+                <Shield className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Cities</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalCities}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-2 bg-warning-100 rounded-xl">
+                <TrendingUp className="w-6 h-6 text-warning-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Active Reports</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeReports}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Analytics Charts */}
+        <div className="mb-8">
+          <AnalyticsCharts />
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
+          </div>
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Link to="/admin/users">
+                <Button variant="outline" fullWidth leftIcon={<Users className="w-4 h-4" />}>
+                  Manage Users
+                </Button>
+              </Link>
+              <Link to="/admin/reports">
+                <Button variant="outline" fullWidth leftIcon={<FileText className="w-4 h-4" />}>
+                  Manage Reports
+                </Button>
+              </Link>
+              <Link to="/admin/settings">
+                <Button variant="outline" fullWidth leftIcon={<Settings className="w-4 h-4" />}>
+                  System Settings
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

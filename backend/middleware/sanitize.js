@@ -1,12 +1,16 @@
 // Sanitize HTML content (remove all HTML tags)
 const sanitizeHtml = (html) => {
-  if (typeof html !== 'string') return html;
+  if (typeof html !== 'string') {
+    return html;
+  }
   return html.replace(/<[^>]*>/g, '');
 };
 
 // Sanitize text content (remove HTML tags and dangerous characters)
 const sanitizeText = (text) => {
-  if (typeof text !== 'string') return text;
+  if (typeof text !== 'string') {
+    return text;
+  }
   return text
     .replace(/<[^>]*>/g, '') // Remove HTML tags
     .replace(/[<>'"&]/g, '') // Remove dangerous characters
@@ -17,12 +21,14 @@ const sanitizeText = (text) => {
 
 // Sanitize object recursively
 const sanitizeObject = (obj) => {
-  if (obj === null || obj === undefined) return obj;
-  
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
   if (Array.isArray(obj)) {
     return obj.map(sanitizeObject);
   }
-  
+
   if (typeof obj === 'object') {
     const sanitized = {};
     for (const [key, value] of Object.entries(obj)) {
@@ -30,11 +36,11 @@ const sanitizeObject = (obj) => {
     }
     return sanitized;
   }
-  
+
   if (typeof obj === 'string') {
     return sanitizeText(obj);
   }
-  
+
   return obj;
 };
 

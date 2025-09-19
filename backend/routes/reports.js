@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/auth');
-const { requireAdmin } = require('../middleware/roleAuth');
+// const { requireAdmin } = require('../middleware/roleAuth'); // Not used in this file
 const { heavyGetLimiter, postLimiter } = require('../middleware/rateLimiter');
-const { upload, handleUploadError } = require('../middleware/upload');
+const {
+  upload,
+  saveValidatedFiles,
+  handleUploadError,
+} = require('../middleware/upload');
 const {
   createReport,
   getReports,
@@ -12,7 +16,7 @@ const {
   closeReport,
   deleteReport,
   getReportTimeline,
-  getNearbyReports
+  getNearbyReports,
 } = require('../controllers/reportsController');
 
 // All routes require authentication
@@ -34,7 +38,14 @@ router.get('/:id', heavyGetLimiter, getReportById);
 router.get('/:id/timeline', heavyGetLimiter, getReportTimeline);
 
 // POST /api/reports/:id/updates - Add authority update (Authority/Admin only - enforced in controller)
-router.post('/:id/updates', postLimiter, upload.array('resolutionImages', 5), handleUploadError, addAuthorityUpdate);
+router.post(
+  '/:id/updates',
+  postLimiter,
+  upload.array('resolutionImages', 5),
+  saveValidatedFiles,
+  handleUploadError,
+  addAuthorityUpdate
+);
 
 // PATCH /api/reports/:id/close - Close report (Author only - enforced in controller)
 router.patch('/:id/close', postLimiter, closeReport);

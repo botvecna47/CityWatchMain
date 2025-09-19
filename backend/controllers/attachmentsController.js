@@ -1,4 +1,5 @@
 const prisma = require('../services/database');
+const imageStorage = require('../services/imageStorage');
 const path = require('path');
 const fs = require('fs');
 
@@ -17,12 +18,14 @@ const uploadFiles = async (req, res) => {
         authorId: userId,
         ...(req.user.role !== 'admin' && {
           cityId: req.user.cityId
-        })
+        }),
       }
     });
 
     if (!report) {
-      return res.status(404).json({ error: 'Report not found or access denied' });
+      return res
+        .status(404)
+        .json({ error: 'Report not found or access denied' });
     }
 
     // Check if files were uploaded
@@ -30,19 +33,38 @@ const uploadFiles = async (req, res) => {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    // Process uploaded files
+    // Process uploaded files using image storage service
     const attachments = [];
     for (const file of req.files) {
-      const attachment = await prisma.attachment.create({
-        data: {
-          filename: file.originalname,
-          filepath: file.filename, // Store only the filename, not the full path
-          mimetype: file.mimetype,
-          size: file.size,
-          reportId
+      try {
+        // Process and save image with optimization
+        const processedImage = await imageStorage.processAndSaveImage(
+          file.buffer,
+          file.originalname,
+          'report'
+        );
+
+        const attachment = await prisma.attachment.create({
+          data: {
+            filename: processedImage.filename,
+            filepath: processedImage.filename, // Store only the filename
+            mimetype: file.mimetype,
+            size: processedImage.size,
+            reportId
+          },
+        });
+        attachments.push({
+          ...attachment,
+          url: processedImage.url
+        });
+      } catch (error) {
+        console.error('Error processing file:', error);
+        // Clean up any partially processed files
+        if (file.filename) {
+          await imageStorage.deleteImage(file.filename, 'report');
         }
-      });
-      attachments.push(attachment);
+        throw error;
+      }
     }
 
     res.status(201).json({
@@ -51,16 +73,16 @@ const uploadFiles = async (req, res) => {
     });
   } catch (error) {
     console.error('Upload files error:', error);
-    
+
     // Clean up uploaded files if database operation fails
     if (req.files) {
-      req.files.forEach(file => {
+      req.files.forEach((file) => {
         if (fs.existsSync(file.path)) {
           fs.unlinkSync(file.path);
         }
       });
     }
-    
+
     res.status(500).json({ error: 'Failed to upload files' });
   }
 };
@@ -78,12 +100,14 @@ const getAttachments = async (req, res) => {
         // User must be in the same city as the report (unless admin)
         ...(req.user.role !== 'admin' && {
           cityId: req.user.cityId
-        })
+        }),
       }
     });
 
     if (!report) {
-      return res.status(404).json({ error: 'Report not found or access denied' });
+      return res
+        .status(404)
+        .json({ error: 'Report not found or access denied' });
     }
 
     // Get attachments
@@ -93,9 +117,9 @@ const getAttachments = async (req, res) => {
     });
 
     // Add full URLs to attachments
-    const attachmentsWithUrls = attachments.map(attachment => ({
+    const attachmentsWithUrls = attachments.map((attachment) => ({
       ...attachment,
-      url: `http://localhost:5000/assets/reports/${attachment.filepath}`
+      url: imageStorage.getImageUrl(attachment.filename, 'report')
     }));
 
     res.json(attachmentsWithUrls);
@@ -115,7 +139,7 @@ const getAttachment = async (req, res) => {
       where: { id: attachmentId },
       include: {
         report: true
-      }
+      },
     });
 
     if (!attachment) {
@@ -123,16 +147,20 @@ const getAttachment = async (req, res) => {
     }
 
     // Check if user has access to the report
-    const hasAccess = req.user.role === 'admin' || 
-      attachment.report.cityId === req.user.cityId;
+    const hasAccess =
+      req.user.role === 'admin' || attachment.report.cityId === req.user.cityId;
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     // Construct full file path
-    const fullFilePath = path.join(__dirname, '../assets/reports', attachment.filepath);
-    
+    const fullFilePath = path.join(
+      __dirname,
+      '../assets/reports',
+      attachment.filepath
+    );
+
     // Check if file exists
     if (!fs.existsSync(fullFilePath)) {
       return res.status(404).json({ error: 'File not found on server' });
@@ -140,7 +168,10 @@ const getAttachment = async (req, res) => {
 
     // Set appropriate headers
     res.setHeader('Content-Type', attachment.mimetype);
-    res.setHeader('Content-Disposition', `inline; filename="${attachment.filename}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${attachment.filename}"`
+    );
 
     // Send file
     res.sendFile(fullFilePath);
@@ -160,7 +191,7 @@ const deleteAttachment = async (req, res) => {
       where: { id: attachmentId },
       include: {
         report: true
-      }
+      },
     });
 
     if (!attachment) {
@@ -168,18 +199,15 @@ const deleteAttachment = async (req, res) => {
     }
 
     // Check if user has access
-    const hasAccess = req.user.role === 'admin' || 
-      attachment.report.authorId === req.user.id;
+    const hasAccess =
+      req.user.role === 'admin' || attachment.report.authorId === req.user.id;
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Delete file from filesystem
-    const fullFilePath = path.join(__dirname, '../assets/reports', attachment.filepath);
-    if (fs.existsSync(fullFilePath)) {
-      fs.unlinkSync(fullFilePath);
-    }
+    // Delete file from filesystem using image storage service
+    await imageStorage.deleteImage(attachment.filename, 'report');
 
     // Delete from database
     await prisma.attachment.delete({

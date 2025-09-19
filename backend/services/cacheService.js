@@ -15,14 +15,14 @@ class CacheService {
         result[key] = params[key];
         return result;
       }, {});
-    
+
     return `${route}:${JSON.stringify(sortedParams)}`;
   }
 
   // Get cached value
   get(key) {
     const item = this.cache.get(key);
-    
+
     if (!item) {
       return null;
     }
@@ -53,7 +53,9 @@ class CacheService {
 
   // Evict least recently used entry
   evictLRU() {
-    if (this.cache.size === 0) return;
+    if (this.cache.size === 0) {
+      return;
+    }
 
     let oldestKey = null;
     let oldestTime = Date.now();
@@ -109,8 +111,11 @@ class CacheService {
 const cacheService = new CacheService();
 
 // Clean expired entries every 5 minutes
-setInterval(() => {
-  cacheService.cleanExpired();
-}, 5 * 60 * 1000);
+setInterval(
+  () => {
+    cacheService.cleanExpired();
+  },
+  5 * 60 * 1000
+);
 
 module.exports = cacheService;

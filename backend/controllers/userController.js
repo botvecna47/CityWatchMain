@@ -34,7 +34,7 @@ const updateUserCity = async (req, res) => {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -54,11 +54,11 @@ const updateUserCity = async (req, res) => {
             id: true,
             name: true,
             slug: true
-          }
+          },
         },
         createdAt: true,
         updatedAt: true
-      }
+      },
     });
 
     // Create audit log entry
@@ -78,7 +78,7 @@ const updateUserCity = async (req, res) => {
           newCityId: cityId,
           newCityName: city.name,
           changedAt: new Date().toISOString()
-        }
+        },
       }
     });
 
@@ -86,7 +86,6 @@ const updateUserCity = async (req, res) => {
       message: 'City updated successfully',
       user: updatedUser
     });
-
   } catch (error) {
     console.error('Update user city error:', error);
     res.status(500).json({
@@ -117,7 +116,7 @@ const getCurrentUser = async (req, res) => {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -165,7 +164,7 @@ const updateUserProfile = async (req, res) => {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -205,15 +204,26 @@ const updateUserProfile = async (req, res) => {
 
     // Prepare update data
     const updateData = {};
-    if (username) updateData.username = username;
-    if (bio !== undefined) updateData.bio = bio;
-    if (cityId) updateData.cityId = cityId;
+    if (username) {
+      updateData.username = username;
+    }
+    if (bio !== undefined) {
+      updateData.bio = bio;
+    }
+    if (cityId) {
+      updateData.cityId = cityId;
+    }
 
     // Handle profile picture upload
     if (profilePictureFile) {
       // Delete old profile picture if it exists
       if (currentUser.profilePicture) {
-        const oldPicturePath = path.join(__dirname, 'assets', 'profiles', currentUser.profilePicture);
+        const oldPicturePath = path.join(
+          __dirname,
+          'assets',
+          'profiles',
+          currentUser.profilePicture
+        );
         try {
           if (fs.existsSync(oldPicturePath)) {
             fs.unlinkSync(oldPicturePath);
@@ -246,7 +256,7 @@ const updateUserProfile = async (req, res) => {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -262,7 +272,9 @@ const updateUserProfile = async (req, res) => {
       changes.push(`username from "${currentUser.username}" to "${username}"`);
     }
     if (cityId && cityId !== currentUser.cityId) {
-      changes.push(`city from "${currentUser.city?.name || 'None'}" to "${city?.name || 'None'}"`);
+      changes.push(
+        `city from "${currentUser.city?.name || 'None'}" to "${city?.name || 'None'}"`
+      );
     }
     if (bio !== undefined && bio !== currentUser.bio) {
       changes.push('bio');
@@ -285,7 +297,7 @@ const updateUserProfile = async (req, res) => {
           metadata: {
             changes: changes,
             updatedAt: new Date().toISOString()
-          }
+          },
         }
       });
     }
@@ -294,7 +306,6 @@ const updateUserProfile = async (req, res) => {
       message: 'Profile updated successfully',
       user: updatedUser
     });
-
   } catch (error) {
     console.error('Update user profile error:', error);
     res.status(500).json({

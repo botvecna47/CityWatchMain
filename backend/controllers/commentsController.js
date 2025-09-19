@@ -14,7 +14,9 @@ const addComment = async (req, res) => {
     }
 
     if (content.length > 1000) {
-      return res.status(400).json({ error: 'Comment content must be less than 1000 characters' });
+      return res
+        .status(400)
+        .json({ error: 'Comment content must be less than 1000 characters' });
     }
 
     // Check if report exists and user has access to it
@@ -25,12 +27,14 @@ const addComment = async (req, res) => {
         // User must be in the same city as the report (unless admin)
         ...(req.user.role !== 'admin' && {
           cityId: req.user.cityId
-        })
+        }),
       }
     });
 
     if (!report) {
-      return res.status(404).json({ error: 'Report not found or access denied' });
+      return res
+        .status(404)
+        .json({ error: 'Report not found or access denied' });
     }
 
     // Create the comment
@@ -47,21 +51,26 @@ const addComment = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         report: {
           select: {
             id: true,
             title: true,
             authorId: true
-          }
+          },
         }
       }
     });
 
     // Notify report author and other commenters about the new comment
     try {
-      await notifyCommentAdded(reportId, comment.author.username, comment.report.title, userId);
+      await notifyCommentAdded(
+        reportId,
+        comment.author.username,
+        comment.report.title,
+        userId
+      );
     } catch (notificationError) {
       console.error('Error notifying comment added:', notificationError);
       // Don't fail the comment creation if notification fails
@@ -78,7 +87,7 @@ const addComment = async (req, res) => {
 const getComments = async (req, res) => {
   const startTime = Date.now();
   console.time('getComments');
-  
+
   try {
     const { reportId } = req.params;
 
@@ -90,18 +99,23 @@ const getComments = async (req, res) => {
         // User must be in the same city as the report (unless admin)
         ...(req.user.role !== 'admin' && {
           cityId: req.user.cityId
-        })
+        }),
       }
     });
 
     if (!report) {
-      return res.status(404).json({ error: 'Report not found or access denied' });
+      return res
+        .status(404)
+        .json({ error: 'Report not found or access denied' });
     }
 
     // Get comments with pagination
     const maxLimit = 100;
     const minLimit = 1;
-    const parsedLimit = Math.min(Math.max(parseInt(req.query.limit) || 20, minLimit), maxLimit);
+    const parsedLimit = Math.min(
+      Math.max(parseInt(req.query.limit) || 20, minLimit),
+      maxLimit
+    );
     const parsedPage = Math.max(parseInt(req.query.page) || 1, 1);
     const skip = (parsedPage - 1) * parsedLimit;
 
@@ -115,7 +129,7 @@ const getComments = async (req, res) => {
               username: true,
               role: true,
               profilePicture: true
-            }
+            },
           }
         },
         orderBy: { createdAt: 'asc' },
@@ -127,7 +141,9 @@ const getComments = async (req, res) => {
 
     const duration = Date.now() - startTime;
     console.timeEnd('getComments');
-    console.log(`getComments completed in ${duration}ms - reportId:${reportId}, page:${parsedPage}, limit:${parsedLimit}, total:${total}`);
+    console.log(
+      `getComments completed in ${duration}ms - reportId:${reportId}, page:${parsedPage}, limit:${parsedLimit}, total:${total}`
+    );
 
     res.json({
       comments,
@@ -136,7 +152,7 @@ const getComments = async (req, res) => {
         limit: parsedLimit,
         total,
         pages: Math.ceil(total / parsedLimit)
-      }
+      },
     });
   } catch (error) {
     const duration = Date.now() - startTime;
@@ -157,7 +173,7 @@ const deleteComment = async (req, res) => {
       include: {
         report: true,
         author: true
-      }
+      },
     });
 
     if (!comment) {
@@ -165,8 +181,10 @@ const deleteComment = async (req, res) => {
     }
 
     // Check if user has access to the report
-    const hasAccess = req.user.role === 'admin' || 
-      (comment.report.cityId === req.user.cityId && comment.authorId === req.user.id);
+    const hasAccess =
+      req.user.role === 'admin' ||
+      (comment.report.cityId === req.user.cityId &&
+        comment.authorId === req.user.id);
 
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied' });

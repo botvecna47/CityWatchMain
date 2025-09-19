@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { Shield, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { API_ENDPOINTS } from '../config/api';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ const Signup = () => {
     const fetchCities = async () => {
       try {
         setCitiesLoading(true);
-        const response = await fetch('http://localhost:5000/api/cities');
+        const response = await fetch(API_ENDPOINTS.CITIES);
         if (response.ok) {
           const data = await response.json();
           setCities(data.cities || []);
@@ -163,8 +164,10 @@ const Signup = () => {
     }
 
     try {
-      console.log('📝 Submitting signup form...');
-      const response = await fetch('http://localhost:5000/api/auth/signup', {
+      console.log('📝 Starting signup process...');
+      
+      // Step 1: Validate signup data
+      const validateResponse = await fetch(API_ENDPOINTS.SIGNUP_VALIDATE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -183,40 +186,57 @@ const Signup = () => {
         }),
       });
 
-      const data = await response.json();
+      const validateData = await validateResponse.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Signup failed');
+      if (!validateResponse.ok) {
+        throw new Error(validateData.error || 'Validation failed');
       }
 
-      console.log('✅ Signup successful:', data);
+      console.log('✅ Validation successful, sending verification email...');
 
-      // If signup successful but requires verification
-      if (data.requiresVerification) {
-        setOtpData({ 
-          email: formData.email, 
-          firstName: formData.firstName, 
-          lastName: formData.lastName,
-          emailSent: data.emailSent,
-          developmentMode: data.developmentMode,
-          otpCode: data.otpCode // Include OTP if email failed or in development mode
-        });
-        setShowOTPVerification(true);
-        setLoading(false);
-        return;
-      }
-
-      // If verification not required (shouldn't happen with new flow)
-      login(data.user, {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken
+      // Step 2: Send verification email
+      const verifyResponse = await fetch(API_ENDPOINTS.SIGNUP_VERIFY, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.username.trim(),
+          email: formData.email.trim(),
+          password: formData.password,
+          cityId: formData.cityId,
+          firstName: formData.firstName.trim(),
+          middleName: formData.middleName?.trim() || '',
+          lastName: formData.lastName.trim(),
+          dob: formData.dob,
+          mobile: formData.mobile.trim(),
+          agreedTos: formData.agreedTos
+        }),
       });
 
-      navigate('/dashboard');
+      const verifyData = await verifyResponse.json();
+
+      if (!verifyResponse.ok) {
+        throw new Error(verifyData.error || 'Failed to send verification email');
+      }
+
+      console.log('✅ Verification email sent:', verifyData);
+
+      // Show OTP verification modal
+      setOtpData({ 
+        email: formData.email, 
+        firstName: formData.firstName, 
+        lastName: formData.lastName,
+        emailSent: verifyData.emailSent,
+        developmentMode: verifyData.developmentMode,
+        otpCode: verifyData.otpCode // Include OTP if email failed or in development mode
+      });
+      setShowOTPVerification(true);
+      setLoading(false);
+      
     } catch (err) {
       console.error('❌ Signup error:', err);
       setError(err.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -494,7 +514,7 @@ const OTPVerification = ({ email, firstName, lastName, emailSent, developmentMod
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-otp', {
+      const response = await fetch(API_ENDPOINTS.SIGNUP_COMPLETE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -527,7 +547,7 @@ const OTPVerification = ({ email, firstName, lastName, emailSent, developmentMod
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/resend-otp', {
+      const response = await fetch(API_ENDPOINTS.SIGNUP_VERIFY, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

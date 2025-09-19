@@ -11,7 +11,7 @@ const {
   deleteReport,
   restoreReport,
   getAuditLogs,
-  getDashboardStats
+  getDashboardStats,
 } = require('../controllers/adminController');
 
 // All admin routes require authentication and admin role

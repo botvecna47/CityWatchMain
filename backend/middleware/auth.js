@@ -4,23 +4,23 @@ const prisma = require('../services/database');
 const authMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.header('Authorization');
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ 
-        error: 'Access denied. No token provided.' 
+      return res.status(401).json({
+        error: 'Access denied. No token provided.'
       });
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-    
+
     if (!token) {
-      return res.status(401).json({ 
-        error: 'Access denied. No token provided.' 
+      return res.status(401).json({
+        error: 'Access denied. No token provided.'
       });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     // Get user from database
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -38,16 +38,23 @@ const authMiddleware = async (req, res, next) => {
             id: true,
             name: true,
             slug: true
-          }
+          },
         },
         createdAt: true,
         updatedAt: true
-      }
+      },
     });
 
     if (!user) {
-      return res.status(401).json({ 
-        error: 'Invalid token. User not found.' 
+      return res.status(401).json({
+        error: 'Invalid token. User not found.'
+      });
+    }
+
+    // Check if user is banned
+    if (user.isBanned) {
+      return res.status(403).json({
+        error: 'Account has been banned. Please contact support.'
       });
     }
 
@@ -60,19 +67,19 @@ const authMiddleware = async (req, res, next) => {
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ 
-        error: 'Invalid token.' 
+      return res.status(401).json({
+        error: 'Invalid token.'
       });
     }
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ 
-        error: 'Token expired.' 
+      return res.status(401).json({
+        error: 'Token expired.'
       });
     }
-    
+
     console.error('Auth middleware error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error.' 
+    res.status(500).json({
+      error: 'Internal server error.'
     });
   }
 };

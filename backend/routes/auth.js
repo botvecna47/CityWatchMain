@@ -4,7 +4,9 @@ const authController = require('../controllers/authController');
 const authMiddleware = require('../middleware/auth');
 
 // Public routes
-router.post('/signup', authController.signup);
+router.post('/validate-signup', authController.validateSignupData);
+router.post('/send-verification', authController.sendVerificationEmail);
+router.post('/complete-signup', authController.completeSignup);
 router.post('/login', authController.login);
 router.post('/refresh', authController.refreshToken);
 router.post('/verify-otp', authController.verifyOTP);

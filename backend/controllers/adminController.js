@@ -3,27 +3,34 @@ const prisma = require('../services/database');
 // Get all users with pagination
 const getUsers = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search = '', role = '', city = '', banned = '' } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      search = '',
+      role = '',
+      city = '',
+      banned = ''
+    } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Build where clause
     const where = {};
-    
+
     if (search) {
       where.OR = [
         { username: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } }
       ];
     }
-    
+
     if (role) {
       where.role = role;
     }
-    
+
     if (city) {
       where.cityId = city;
     }
-    
+
     if (banned !== '') {
       where.isBanned = banned === 'true';
     }
@@ -45,7 +52,7 @@ const getUsers = async (req, res) => {
               id: true,
               name: true,
               slug: true
-            }
+            },
           }
         },
         orderBy: { createdAt: 'desc' },
@@ -62,7 +69,7 @@ const getUsers = async (req, res) => {
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / parseInt(limit))
-      }
+      },
     });
   } catch (error) {
     console.error('Get users error:', error);
@@ -102,7 +109,7 @@ const updateUserRole = async (req, res) => {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -118,7 +125,7 @@ const updateUserRole = async (req, res) => {
         targetId: id,
         performedById: adminId,
         reason: `Role changed by admin ${req.user.username}`
-      }
+      },
     });
 
     res.json({
@@ -158,7 +165,7 @@ const toggleUserBan = async (req, res) => {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -174,7 +181,7 @@ const toggleUserBan = async (req, res) => {
         targetId: id,
         performedById: adminId,
         reason: `User ${newBanStatus ? 'banned' : 'unbanned'} by admin ${req.user.username}`
-      }
+      },
     });
 
     res.json({
@@ -195,21 +202,22 @@ const createAdmin = async (req, res) => {
 
     // Validate required fields
     if (!username || !email || !password) {
-      return res.status(400).json({ error: 'Username, email, and password are required' });
+      return res
+        .status(400)
+        .json({ error: 'Username, email, and password are required' });
     }
 
     // Check if user already exists
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [
-          { username },
-          { email }
-        ]
-      }
+        OR: [{ username }, { email }]
+      },
     });
 
     if (existingUser) {
-      return res.status(400).json({ error: 'User with this username or email already exists' });
+      return res
+        .status(400)
+        .json({ error: 'User with this username or email already exists' });
     }
 
     // Hash password
@@ -232,7 +240,7 @@ const createAdmin = async (req, res) => {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -248,7 +256,7 @@ const createAdmin = async (req, res) => {
         targetId: newAdmin.id,
         performedById: adminId,
         reason: `Admin user created by ${req.user.username}`
-      }
+      },
     });
 
     res.status(201).json({
@@ -261,7 +269,7 @@ const createAdmin = async (req, res) => {
         city: newAdmin.city,
         isBanned: newAdmin.isBanned,
         createdAt: newAdmin.createdAt
-      }
+      },
     });
   } catch (error) {
     console.error('Create admin error:', error);
@@ -272,24 +280,31 @@ const createAdmin = async (req, res) => {
 // Get all reports with filters
 const getReports = async (req, res) => {
   try {
-    const { page = 1, limit = 20, status = '', category = '', city = '', deleted = '' } = req.query;
+    const {
+      page = 1,
+      limit = 20,
+      status = '',
+      category = '',
+      city = '',
+      deleted = ''
+    } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     // Build where clause
     const where = {};
-    
+
     if (status) {
       where.status = status;
     }
-    
+
     if (category) {
       where.category = category;
     }
-    
+
     if (city) {
       where.cityId = city;
     }
-    
+
     if (deleted !== '') {
       where.deleted = deleted === 'true';
     }
@@ -311,14 +326,14 @@ const getReports = async (req, res) => {
               id: true,
               username: true,
               role: true
-            }
+            },
           },
           city: {
             select: {
               id: true,
               name: true,
               slug: true
-            }
+            },
           }
         },
         orderBy: { createdAt: 'desc' },
@@ -335,7 +350,7 @@ const getReports = async (req, res) => {
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / parseInt(limit))
-      }
+      },
     });
   } catch (error) {
     console.error('Get reports error:', error);
@@ -369,14 +384,14 @@ const deleteReport = async (req, res) => {
             id: true,
             username: true,
             role: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -392,7 +407,7 @@ const deleteReport = async (req, res) => {
         targetId: id,
         performedById: adminId,
         reason: `Report "${currentReport.title}" deleted by admin ${req.user.username}`
-      }
+      },
     });
 
     res.json({
@@ -431,14 +446,14 @@ const restoreReport = async (req, res) => {
             id: true,
             username: true,
             role: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -454,7 +469,7 @@ const restoreReport = async (req, res) => {
         targetId: id,
         performedById: adminId,
         reason: `Report "${currentReport.title}" restored by admin ${req.user.username}`
-      }
+      },
     });
 
     res.json({
@@ -488,14 +503,14 @@ const getAuditLogs = async (req, res) => {
               id: true,
               username: true,
               role: true
-            }
+            },
           },
           performedBy: {
             select: {
               id: true,
               username: true,
               role: true
-            }
+            },
           }
         },
         orderBy: { createdAt: 'desc' },
@@ -512,7 +527,7 @@ const getAuditLogs = async (req, res) => {
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / parseInt(limit))
-      }
+      },
     });
   } catch (error) {
     console.error('Get audit logs error:', error);
@@ -550,7 +565,7 @@ const getDashboardStats = async (req, res) => {
         resolvedReports,
         totalAuthorities,
         bannedUsers
-      }
+      },
     });
   } catch (error) {
     console.error('Get dashboard stats error:', error);

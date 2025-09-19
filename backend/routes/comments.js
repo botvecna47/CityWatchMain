@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { addComment, getComments, deleteComment } = require('../controllers/commentsController');
+const {
+  addComment,
+  getComments,
+  deleteComment,
+} = require('../controllers/commentsController');
 const authMiddleware = require('../middleware/auth');
 const { requireAdmin } = require('../middleware/roleAuth');
 const { heavyGetLimiter, postLimiter } = require('../middleware/rateLimiter');
@@ -18,4 +22,3 @@ router.get('/:reportId', heavyGetLimiter, getComments);
 router.delete('/:commentId', requireAdmin, postLimiter, deleteComment);
 
 module.exports = router;
-

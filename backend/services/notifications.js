@@ -15,10 +15,12 @@ const createNotification = async (userId, type, message, reportId = null) => {
         type,
         message,
         reportId
-      }
+      },
     });
-    
-    console.log(`Notification created for user ${userId}: ${type} - ${message}`);
+
+    console.log(
+      `Notification created for user ${userId}: ${type} - ${message}`
+    );
     return notification;
   } catch (error) {
     console.error('Error creating notification:', error);
@@ -33,13 +35,22 @@ const createNotification = async (userId, type, message, reportId = null) => {
  * @param {string} message - The notification message
  * @param {string} reportId - Optional report ID for context
  */
-const createNotificationsForUsers = async (userIds, type, message, reportId = null) => {
+const createNotificationsForUsers = async (
+  userIds,
+  type,
+  message,
+  reportId = null
+) => {
   try {
     const notifications = await Promise.all(
-      userIds.map(userId => createNotification(userId, type, message, reportId))
+      userIds.map((userId) =>
+        createNotification(userId, type, message, reportId)
+      )
     );
-    
-    console.log(`Notifications created for ${userIds.length} users: ${type} - ${message}`);
+
+    console.log(
+      `Notifications created for ${userIds.length} users: ${type} - ${message}`
+    );
     return notifications;
   } catch (error) {
     console.error('Error creating notifications for users:', error);
@@ -55,19 +66,19 @@ const createNotificationsForUsers = async (userIds, type, message, reportId = nu
 const getUserNotifications = async (userId, options = {}) => {
   try {
     const { limit = 20, offset = 0, unreadOnly = false } = options;
-    
+
     const where = { userId };
     if (unreadOnly) {
       where.isRead = false;
     }
-    
+
     const notifications = await prisma.notification.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: limit,
       skip: offset
     });
-    
+
     return notifications;
   } catch (error) {
     console.error('Error getting user notifications:', error);
@@ -86,13 +97,15 @@ const markNotificationsAsRead = async (userId, notificationIds = []) => {
     if (notificationIds.length > 0) {
       where.id = { in: notificationIds };
     }
-    
+
     const result = await prisma.notification.updateMany({
       where,
       data: { isRead: true }
     });
-    
-    console.log(`Marked ${result.count} notifications as read for user ${userId}`);
+
+    console.log(
+      `Marked ${result.count} notifications as read for user ${userId}`
+    );
     return result;
   } catch (error) {
     console.error('Error marking notifications as read:', error);
@@ -110,9 +123,9 @@ const getUnreadCount = async (userId) => {
       where: {
         userId,
         isRead: false
-      }
+      },
     });
-    
+
     return count;
   } catch (error) {
     console.error('Error getting unread count:', error);
@@ -131,14 +144,14 @@ const getReportCommenters = async (reportId, excludeUserId = null) => {
     if (excludeUserId) {
       where.authorId = { not: excludeUserId };
     }
-    
+
     const comments = await prisma.comment.findMany({
       where,
       select: { authorId: true },
       distinct: ['authorId']
     });
-    
-    return comments.map(comment => comment.authorId);
+
+    return comments.map((comment) => comment.authorId);
   } catch (error) {
     console.error('Error getting report commenters:', error);
     throw error;

@@ -11,10 +11,10 @@ const createTransporter = () => {
       auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD,
-      },
+      }
     });
   }
-  
+
   // Check for SendGrid configuration
   if (process.env.SENDGRID_API_KEY) {
     console.log('📧 Using SendGrid service');
@@ -23,10 +23,10 @@ const createTransporter = () => {
       auth: {
         user: 'apikey',
         pass: process.env.SENDGRID_API_KEY,
-      },
+      }
     });
   }
-  
+
   // Check for Mailgun configuration
   if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
     console.log('📧 Using Mailgun service');
@@ -37,10 +37,10 @@ const createTransporter = () => {
       auth: {
         user: process.env.MAILGUN_API_KEY,
         pass: process.env.MAILGUN_DOMAIN,
-      },
+      }
     });
   }
-  
+
   // Fallback to console logging (development mode)
   console.log('⚠️ No email service configured, using console fallback');
   return null;
@@ -55,6 +55,11 @@ const getTransporter = () => {
   return transporter;
 };
 
+// Reset transporter when environment changes
+const resetTransporter = () => {
+  transporter = null;
+};
+
 // Generate 6-digit OTP
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -62,9 +67,12 @@ const generateOTP = () => {
 
 // Send OTP email
 const sendOTPEmail = async (email, firstName, otpCode) => {
+  console.log(`📧 Attempting to send OTP email to: ${email}`);
+  console.log(`📧 From address: ${process.env.GMAIL_USER || 'Not configured'}`);
+  
   const transporter = getTransporter();
   const mailOptions = {
-    from: process.env.GMAIL_USER,
+    from: process.env.GMAIL_USER || 'noreply@citywatch.com',
     to: email,
     subject: 'CityWatch - Email Verification Code',
     html: `
@@ -113,10 +121,12 @@ const sendOTPEmail = async (email, firstName, otpCode) => {
       console.log(`📧 [DEVELOPMENT MODE] OTP email would be sent to ${email}`);
       console.log(`📧 [DEVELOPMENT MODE] Subject: ${mailOptions.subject}`);
       console.log(`📧 [DEVELOPMENT MODE] OTP Code: ${otpCode}`);
-      console.log(`📧 [DEVELOPMENT MODE] To configure email service, set GMAIL_USER and GMAIL_APP_PASSWORD in your .env file`);
+      console.log(
+        `📧 [DEVELOPMENT MODE] To configure email service, set GMAIL_USER and GMAIL_APP_PASSWORD in your .env file`
+      );
       return { success: true, developmentMode: true };
     }
-    
+
     await transporter.sendMail(mailOptions);
     console.log(`✅ OTP email sent successfully to ${email}`);
     return { success: true };
@@ -128,9 +138,12 @@ const sendOTPEmail = async (email, firstName, otpCode) => {
 
 // Send resend OTP email
 const sendResendOTPEmail = async (email, firstName, otpCode) => {
+  console.log(`📧 Attempting to resend OTP email to: ${email}`);
+  console.log(`📧 From address: ${process.env.GMAIL_USER || 'Not configured'}`);
+  
   const transporter = getTransporter();
   const mailOptions = {
-    from: process.env.GMAIL_USER,
+    from: process.env.GMAIL_USER || 'noreply@citywatch.com',
     to: email,
     subject: 'CityWatch - New Verification Code',
     html: `
@@ -176,18 +189,25 @@ const sendResendOTPEmail = async (email, firstName, otpCode) => {
   try {
     // If no email service is configured, log to console for development
     if (!transporter) {
-      console.log(`📧 [DEVELOPMENT MODE] Resend OTP email would be sent to ${email}`);
+      console.log(
+        `📧 [DEVELOPMENT MODE] Resend OTP email would be sent to ${email}`
+      );
       console.log(`📧 [DEVELOPMENT MODE] Subject: ${mailOptions.subject}`);
       console.log(`📧 [DEVELOPMENT MODE] OTP Code: ${otpCode}`);
-      console.log(`📧 [DEVELOPMENT MODE] To configure email service, set GMAIL_USER and GMAIL_APP_PASSWORD in your .env file`);
+      console.log(
+        `📧 [DEVELOPMENT MODE] To configure email service, set GMAIL_USER and GMAIL_APP_PASSWORD in your .env file`
+      );
       return { success: true, developmentMode: true };
     }
-    
+
     await transporter.sendMail(mailOptions);
     console.log(`✅ Resend OTP email sent successfully to ${email}`);
     return { success: true };
   } catch (error) {
-    console.error(`❌ Failed to send resend OTP email to ${email}:`, error.message);
+    console.error(
+      `❌ Failed to send resend OTP email to ${email}:`,
+      error.message
+    );
     return { success: false, error: error.message };
   }
 };

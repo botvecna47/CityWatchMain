@@ -1,5 +1,8 @@
 const prisma = require('./database');
-const { createNotification, createNotificationsForUsers } = require('./notifications');
+const {
+  createNotification,
+  createNotificationsForUsers,
+} = require('./notifications');
 
 /**
  * Notify authorities when a new report is created
@@ -8,15 +11,20 @@ const { createNotification, createNotificationsForUsers } = require('./notificat
  * @param {string} reportTitle - The report title
  * @param {string} authorUsername - The username of the report author
  */
-const notifyAuthoritiesOfNewReport = async (cityId, reportId, reportTitle, authorUsername) => {
+const notifyAuthoritiesOfNewReport = async(
+  cityId,
+  reportId,
+  reportTitle,
+  authorUsername
+) => {
   try {
     // Get all authority users in the same city
     const authorities = await prisma.user.findMany({
       where: {
         cityId: cityId,
-        role: 'authority'
+        role: 'authority',
       },
-      select: { id: true }
+      select: { id: true },
     });
 
     if (authorities.length === 0) {
@@ -24,7 +32,7 @@ const notifyAuthoritiesOfNewReport = async (cityId, reportId, reportTitle, autho
       return;
     }
 
-    const authorityIds = authorities.map(auth => auth.id);
+    const authorityIds = authorities.map((auth) => auth.id);
     const message = `New report "${reportTitle}" created by ${authorUsername}`;
 
     await createNotificationsForUsers(
@@ -34,7 +42,9 @@ const notifyAuthoritiesOfNewReport = async (cityId, reportId, reportTitle, autho
       reportId
     );
 
-    console.log(`Notified ${authorityIds.length} authorities about new report ${reportId}`);
+    console.log(
+      `Notified ${authorityIds.length} authorities about new report ${reportId}`
+    );
   } catch (error) {
     console.error('Error notifying authorities of new report:', error);
     throw error;
@@ -48,12 +58,16 @@ const notifyAuthoritiesOfNewReport = async (cityId, reportId, reportTitle, autho
  * @param {string} reportTitle - The report title
  * @param {string} authorityId - The authority user ID
  */
-const notifyAuthorityUpdate = async (reportId, authorityUsername, reportTitle, authorityId) => {
+const notifyAuthorityUpdate = async(
+  reportId,
+  authorityUsername,
+  reportTitle
+) => {
   try {
     // Get the report author
     const report = await prisma.report.findUnique({
       where: { id: reportId },
-      select: { authorId: true }
+      select: { authorId: true },
     });
 
     if (!report) {
@@ -70,7 +84,9 @@ const notifyAuthorityUpdate = async (reportId, authorityUsername, reportTitle, a
       reportId
     );
 
-    console.log(`Notified report author about authority update for report ${reportId}`);
+    console.log(
+      `Notified report author about authority update for report ${reportId}`
+    );
   } catch (error) {
     console.error('Error notifying authority update:', error);
     throw error;
@@ -83,12 +99,12 @@ const notifyAuthorityUpdate = async (reportId, authorityUsername, reportTitle, a
  * @param {string} reportTitle - The report title
  * @param {string} userId - The user ID who closed the report
  */
-const notifyReportClosed = async (reportId, reportTitle, userId) => {
+const notifyReportClosed = async(reportId, reportTitle, userId) => {
   try {
     // Get the report author
     const report = await prisma.report.findUnique({
       where: { id: reportId },
-      select: { authorId: true }
+      select: { authorId: true },
     });
 
     if (!report) {
@@ -98,7 +114,9 @@ const notifyReportClosed = async (reportId, reportTitle, userId) => {
 
     // Don't notify if the author is the one who closed it
     if (report.authorId === userId) {
-      console.log(`Report author closed their own report ${reportId}, no notification needed`);
+      console.log(
+        `Report author closed their own report ${reportId}, no notification needed`
+      );
       return;
     }
 
@@ -111,7 +129,9 @@ const notifyReportClosed = async (reportId, reportTitle, userId) => {
       reportId
     );
 
-    console.log(`Notified report author about report closure for report ${reportId}`);
+    console.log(
+      `Notified report author about report closure for report ${reportId}`
+    );
   } catch (error) {
     console.error('Error notifying report closure:', error);
     throw error;
@@ -121,5 +141,5 @@ const notifyReportClosed = async (reportId, reportTitle, userId) => {
 module.exports = {
   notifyAuthoritiesOfNewReport,
   notifyAuthorityUpdate,
-  notifyReportClosed
+  notifyReportClosed,
 };

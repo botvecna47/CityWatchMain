@@ -11,7 +11,7 @@ const getCities = async (req, res) => {
       },
       orderBy: {
         name: 'asc'
-      }
+      },
     });
 
     res.json({ cities });
@@ -49,7 +49,7 @@ const createCity = async (req, res) => {
       data: {
         name,
         slug
-      }
+      },
     });
 
     res.status(201).json({

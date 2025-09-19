@@ -16,7 +16,9 @@ const requireAuthority = (req, res, next) => {
   }
 
   if (!['authority', 'admin'].includes(req.user.role)) {
-    return res.status(403).json({ error: 'Authority or admin access required' });
+    return res
+      .status(403)
+      .json({ error: 'Authority or admin access required' });
   }
 
   next();
@@ -37,5 +39,5 @@ const requireCitizen = (req, res, next) => {
 module.exports = {
   requireAdmin,
   requireAuthority,
-  requireCitizen
+  requireCitizen,
 };

@@ -4,7 +4,9 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000
 export const API_ENDPOINTS = {
   // Auth endpoints
   LOGIN: `${API_BASE_URL}/api/auth/login`,
-  SIGNUP: `${API_BASE_URL}/api/auth/signup`,
+  SIGNUP_VALIDATE: `${API_BASE_URL}/api/auth/validate-signup`,
+  SIGNUP_VERIFY: `${API_BASE_URL}/api/auth/send-verification`,
+  SIGNUP_COMPLETE: `${API_BASE_URL}/api/auth/complete-signup`,
   REFRESH: `${API_BASE_URL}/api/auth/refresh`,
   ME: `${API_BASE_URL}/api/auth/me`,
   

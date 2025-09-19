@@ -17,18 +17,19 @@ const createAlert = async (req, res) => {
 
     // Determine the cityId to use
     let alertCityId = cityId;
-    
+
     // If user is admin, they can specify cityId in request body
     if (req.user.role === 'admin' && req.body.cityId) {
       alertCityId = req.body.cityId;
     }
-    
+
     // Ensure we have a valid cityId
     if (!alertCityId) {
       return res.status(400).json({
-        error: req.user.role === 'admin' 
-          ? 'Please specify a cityId in the request body' 
-          : 'You must be assigned to a city before creating alerts'
+        error:
+          req.user.role === 'admin'
+            ? 'Please specify a cityId in the request body'
+            : 'You must be assigned to a city before creating alerts'
       });
     }
 
@@ -67,21 +68,26 @@ const createAlert = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
 
     // Notify all users in the city about the new alert
     try {
-      await notifyAlertCreated(alertCityId, alert.id, alert.title, alert.creator.username);
+      await notifyAlertCreated(
+        alertCityId,
+        alert.id,
+        alert.title,
+        alert.creator.username
+      );
     } catch (notificationError) {
       console.error('Error notifying users of new alert:', notificationError);
       // Don't fail the alert creation if notification fails
@@ -91,7 +97,6 @@ const createAlert = async (req, res) => {
       message: 'Alert created successfully',
       alert
     });
-
   } catch (error) {
     console.error('Create alert error:', error);
     res.status(500).json({
@@ -127,7 +132,7 @@ const getAlerts = async (req, res) => {
           limit: parseInt(limit),
           total: 0,
           pages: 0
-        }
+        },
       });
     }
 
@@ -142,20 +147,17 @@ const getAlerts = async (req, res) => {
               username: true,
               role: true,
               profilePicture: true
-            }
+            },
           },
           city: {
             select: {
               id: true,
               name: true,
               slug: true
-            }
+            },
           }
         },
-        orderBy: [
-          { isPinned: 'desc' },
-          { createdAt: 'desc' }
-        ],
+        orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
         skip,
         take
       }),
@@ -169,9 +171,8 @@ const getAlerts = async (req, res) => {
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / parseInt(limit))
-      }
+      },
     });
-
   } catch (error) {
     console.error('Get alerts error:', error);
     res.status(500).json({
@@ -197,14 +198,14 @@ const getAlertById = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -216,7 +217,6 @@ const getAlertById = async (req, res) => {
     }
 
     res.json({ alert });
-
   } catch (error) {
     console.error('Get alert by ID error:', error);
     res.status(500).json({
@@ -252,7 +252,7 @@ const updateAlert = async (req, res) => {
             id: true,
             username: true,
             role: true
-          }
+          },
         }
       }
     });
@@ -292,9 +292,15 @@ const updateAlert = async (req, res) => {
 
     // Prepare update data
     const updateData = {};
-    if (title !== undefined) updateData.title = title.trim();
-    if (message !== undefined) updateData.message = message.trim();
-    if (isPinned !== undefined) updateData.isPinned = Boolean(isPinned);
+    if (title !== undefined) {
+      updateData.title = title.trim();
+    }
+    if (message !== undefined) {
+      updateData.message = message.trim();
+    }
+    if (isPinned !== undefined) {
+      updateData.isPinned = Boolean(isPinned);
+    }
 
     // Update alert
     const updatedAlert = await prisma.alert.update({
@@ -307,14 +313,14 @@ const updateAlert = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -323,7 +329,6 @@ const updateAlert = async (req, res) => {
       message: 'Alert updated successfully',
       alert: updatedAlert
     });
-
   } catch (error) {
     console.error('Update alert error:', error);
     res.status(500).json({
@@ -358,7 +363,7 @@ const deleteAlert = async (req, res) => {
             id: true,
             username: true,
             role: true
-          }
+          },
         }
       }
     });
@@ -394,14 +399,14 @@ const deleteAlert = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -410,7 +415,6 @@ const deleteAlert = async (req, res) => {
       message: 'Alert deleted successfully',
       alert: deletedAlert
     });
-
   } catch (error) {
     console.error('Delete alert error:', error);
     res.status(500).json({
@@ -454,20 +458,17 @@ const getMyAlerts = async (req, res) => {
               username: true,
               role: true,
               profilePicture: true
-            }
+            },
           },
           city: {
             select: {
               id: true,
               name: true,
               slug: true
-            }
+            },
           }
         },
-        orderBy: [
-          { isPinned: 'desc' },
-          { createdAt: 'desc' }
-        ],
+        orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
         skip,
         take
       }),
@@ -481,9 +482,8 @@ const getMyAlerts = async (req, res) => {
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / parseInt(limit))
-      }
+      },
     });
-
   } catch (error) {
     console.error('Get my alerts error:', error);
     res.status(500).json({

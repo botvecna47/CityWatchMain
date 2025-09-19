@@ -1,5 +1,6 @@
 const prisma = require('../services/database');
 const cacheService = require('../services/cacheService');
+const imageStorage = require('../services/imageStorage');
 const {
   notifyAuthoritiesOfNewReport,
   notifyAuthorityUpdate,
@@ -23,7 +24,8 @@ const createReport = async (req, res) => {
     // Ensure user has a city
     if (!req.user.cityId) {
       return res.status(400).json({
-        error: 'You must be assigned to a city before creating reports. Please update your city in settings.'
+        error:
+          'You must be assigned to a city before creating reports. Please update your city in settings.'
       });
     }
 
@@ -37,7 +39,8 @@ const createReport = async (req, res) => {
     // Location is required
     if (!latitude || !longitude) {
       return res.status(400).json({
-        error: 'Location is required. Please provide latitude and longitude coordinates.'
+        error:
+          'Location is required. Please provide latitude and longitude coordinates.'
       });
     }
 
@@ -59,27 +62,27 @@ const createReport = async (req, res) => {
     const validCategories = ['GARBAGE', 'ROAD', 'WATER', 'POWER', 'OTHER'];
     if (!validCategories.includes(category)) {
       return res.status(400).json({
-        error: 'Invalid category. Must be one of: ' + validCategories.join(', ')
+        error: `Invalid category. Must be one of: ${validCategories.join(', ')}`,
       });
     }
 
     // Parse and validate location coordinates
     const parsedLatitude = parseFloat(latitude);
     const parsedLongitude = parseFloat(longitude);
-    
+
     // Validate coordinates
     if (isNaN(parsedLatitude) || isNaN(parsedLongitude)) {
       return res.status(400).json({
         error: 'Invalid latitude or longitude values'
       });
     }
-    
+
     if (parsedLatitude < -90 || parsedLatitude > 90) {
       return res.status(400).json({
         error: 'Latitude must be between -90 and 90 degrees'
       });
     }
-    
+
     if (parsedLongitude < -180 || parsedLongitude > 180) {
       return res.status(400).json({
         error: 'Longitude must be between -180 and 180 degrees'
@@ -104,23 +107,31 @@ const createReport = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
 
     // Notify authorities in the city about the new report
     try {
-      await notifyAuthoritiesOfNewReport(cityId, report.id, report.title, report.author.username);
+      await notifyAuthoritiesOfNewReport(
+        cityId,
+        report.id,
+        report.title,
+        report.author.username
+      );
     } catch (notificationError) {
-      console.error('Error notifying authorities of new report:', notificationError);
+      console.error(
+        'Error notifying authorities of new report:',
+        notificationError
+      );
       // Don't fail the report creation if notification fails
     }
 
@@ -131,7 +142,6 @@ const createReport = async (req, res) => {
       message: 'Report created successfully',
       report
     });
-
   } catch (error) {
     console.error('Create report error:', error);
     res.status(500).json({
@@ -144,15 +154,18 @@ const createReport = async (req, res) => {
 const getReports = async (req, res) => {
   const startTime = Date.now();
   console.time('getReports');
-  
+
   try {
     const userCityId = req.user.cityId;
     const { category, status, page = 1, limit = 20, q } = req.query;
-    
+
     // Enforce pagination limits
     const maxLimit = 100;
     const minLimit = 1;
-    const parsedLimit = Math.min(Math.max(parseInt(limit) || 20, minLimit), maxLimit);
+    const parsedLimit = Math.min(
+      Math.max(parseInt(limit) || 20, minLimit),
+      maxLimit
+    );
     const parsedPage = Math.max(parseInt(page) || 1, 1);
 
     // Check cache for GET requests (no search query)
@@ -164,12 +177,14 @@ const getReports = async (req, res) => {
         page: parsedPage,
         limit: parsedLimit
       });
-      
+
       const cachedResult = cacheService.get(cacheKey);
       if (cachedResult) {
         const duration = Date.now() - startTime;
         console.timeEnd('getReports');
-        console.log(`getReports served from cache in ${duration}ms - page:${parsedPage}, limit:${parsedLimit}`);
+        console.log(
+          `getReports served from cache in ${duration}ms - page:${parsedPage}, limit:${parsedLimit}`
+        );
         return res.json(cachedResult);
       }
     }
@@ -206,10 +221,19 @@ const getReports = async (req, res) => {
     }
 
     if (q) {
-      where.OR = [
-        { title: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } }
-      ];
+      // Sanitize search query to prevent injection
+      const sanitizedQuery = q
+        .trim()
+        .replace(/[<>'"&]/g, '') // Remove dangerous characters
+        .replace(/[^\w\s\-.]/g, '') // Keep only alphanumeric, spaces, hyphens, and dots
+        .substring(0, 100); // Limit length to prevent abuse
+
+      if (sanitizedQuery.length > 0) {
+        where.OR = [
+          { title: { contains: sanitizedQuery, mode: 'insensitive' } },
+          { description: { contains: sanitizedQuery, mode: 'insensitive' } }
+        ];
+      }
     }
 
     // Get reports with pagination - optimized query
@@ -230,20 +254,20 @@ const getReports = async (req, res) => {
               username: true,
               role: true,
               profilePicture: true
-            }
+            },
           },
           city: {
             select: {
               id: true,
               name: true,
               slug: true
-            }
+            },
           },
           _count: {
             select: {
               comments: true,
               attachments: true
-            }
+            },
           }
         },
         orderBy: {
@@ -261,7 +285,7 @@ const getReports = async (req, res) => {
         },
         _count: {
           category: true
-        }
+        },
       })
     ]);
 
@@ -296,10 +320,11 @@ const getReports = async (req, res) => {
 
     const duration = Date.now() - startTime;
     console.timeEnd('getReports');
-    console.log(`getReports completed in ${duration}ms - page:${parsedPage}, limit:${parsedLimit}, total:${total}`);
+    console.log(
+      `getReports completed in ${duration}ms - page:${parsedPage}, limit:${parsedLimit}, total:${total}`
+    );
 
     res.json(result);
-
   } catch (error) {
     const duration = Date.now() - startTime;
     console.timeEnd('getReports');
@@ -331,14 +356,14 @@ const getReportById = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         },
         authorityUpdates: {
           include: {
@@ -347,12 +372,12 @@ const getReportById = async (req, res) => {
                 id: true,
                 username: true,
                 role: true
-              }
+              },
             }
           },
           orderBy: {
             createdAt: 'asc'
-          }
+          },
         },
         comments: {
           include: {
@@ -361,17 +386,17 @@ const getReportById = async (req, res) => {
                 id: true,
                 username: true,
                 role: true
-              }
+              },
             }
           },
           orderBy: {
             createdAt: 'asc'
-          }
+          },
         },
         attachments: {
           orderBy: {
             createdAt: 'asc'
-          }
+          },
         }
       }
     });
@@ -384,25 +409,27 @@ const getReportById = async (req, res) => {
 
     // Add full URLs to attachments
     if (report.attachments) {
-      report.attachments = report.attachments.map(attachment => ({
+      report.attachments = report.attachments.map((attachment) => ({
         ...attachment,
-        url: `http://localhost:5000/uploads/${attachment.filepath}`
+        url: imageStorage.getImageUrl(attachment.filename, 'report')
       }));
     }
 
     // Process authority updates to include resolution image URLs
     if (report.authorityUpdates) {
-      report.authorityUpdates = report.authorityUpdates.map(update => {
+      report.authorityUpdates = report.authorityUpdates.map((update) => {
         let resolutionImageUrls = [];
         if (update.resolutionImages) {
           try {
             const imageFilenames = JSON.parse(update.resolutionImages);
-            resolutionImageUrls = imageFilenames.map(filename => `/assets/reports/${filename}`);
+            resolutionImageUrls = imageFilenames.map((filename) =>
+              imageStorage.getImageUrl(filename, 'report')
+            );
           } catch (error) {
             console.error('Error parsing resolution images JSON:', error);
           }
         }
-        
+
         return {
           ...update,
           resolutionImageUrls
@@ -422,7 +449,7 @@ const getReportById = async (req, res) => {
                 id: true,
                 username: true,
                 role: true
-              }
+              },
             }
           },
           orderBy: { createdAt: 'asc' }
@@ -435,7 +462,7 @@ const getReportById = async (req, res) => {
                 id: true,
                 username: true,
                 role: true
-              }
+              },
             }
           },
           orderBy: { createdAt: 'asc' }
@@ -443,7 +470,7 @@ const getReportById = async (req, res) => {
         prisma.attachment.findMany({
           where: { reportId: id },
           orderBy: { createdAt: 'asc' }
-        })
+        }),
       ]);
 
       // Create timeline events
@@ -460,11 +487,11 @@ const getReportById = async (req, res) => {
           category: report.category,
           status: report.status,
           author: report.author
-        }
+        },
       });
 
       // Add authority updates
-      authorityUpdates.forEach(update => {
+      authorityUpdates.forEach((update) => {
         // Parse resolution images if they exist
         let resolutionImages = [];
         if (update.resolutionImages) {
@@ -474,7 +501,7 @@ const getReportById = async (req, res) => {
             console.error('Error parsing resolution images JSON:', error);
           }
         }
-        
+
         timeline.push({
           id: `update-${update.id}`,
           type: 'authority_update',
@@ -483,13 +510,15 @@ const getReportById = async (req, res) => {
             text: update.text,
             newStatus: update.newStatus,
             authority: update.authority,
-            resolutionImages: resolutionImages.map(filename => `/assets/reports/${filename}`)
-          }
+            resolutionImages: resolutionImages.map(
+              (filename) => `/assets/reports/${filename}`
+            )
+          },
         });
       });
 
       // Add comments
-      comments.forEach(comment => {
+      comments.forEach((comment) => {
         timeline.push({
           id: `comment-${comment.id}`,
           type: 'comment',
@@ -497,12 +526,12 @@ const getReportById = async (req, res) => {
           data: {
             content: comment.content,
             author: comment.author
-          }
+          },
         });
       });
 
       // Add file uploads
-      attachments.forEach(attachment => {
+      attachments.forEach((attachment) => {
         timeline.push({
           id: `attachment-${attachment.id}`,
           type: 'file_upload',
@@ -511,23 +540,22 @@ const getReportById = async (req, res) => {
             filename: attachment.filename,
             mimetype: attachment.mimetype,
             size: attachment.size
-          }
+          },
         });
       });
 
       // Sort timeline by timestamp
       timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-      res.json({ 
+      res.json({
         report: {
           ...report,
           timeline
-        }
+        },
       });
     } else {
       res.json({ report });
     }
-
   } catch (error) {
     console.error('Get report by ID error:', error);
     res.status(500).json({
@@ -543,15 +571,29 @@ const addAuthorityUpdate = async (req, res) => {
     const { text, newStatus } = req.body;
     const authorityId = req.user.id;
     const userRole = req.user.role;
-    
+
     // Handle uploaded resolution images
     const resolutionImages = [];
     if (req.files && req.files.length > 0) {
-      resolutionImages.push(...req.files.map(file => file.filename));
+      for (const file of req.files) {
+        try {
+          // Process and save image with optimization
+          const processedImage = await imageStorage.processAndSaveImage(
+            file.buffer,
+            file.originalname,
+            'report'
+          );
+          resolutionImages.push(processedImage.filename);
+        } catch (error) {
+          console.error('Error processing resolution image:', error);
+          // Continue with other images
+        }
+      }
     }
-    
-    // Convert to JSON string for SQLite storage
-    const resolutionImagesJson = resolutionImages.length > 0 ? JSON.stringify(resolutionImages) : null;
+
+    // Convert to JSON string for storage
+    const resolutionImagesJson =
+      resolutionImages.length > 0 ? JSON.stringify(resolutionImages) : null;
 
     // Only authority or admin can add updates
     if (userRole !== 'authority' && userRole !== 'admin') {
@@ -579,7 +621,7 @@ const addAuthorityUpdate = async (req, res) => {
             id: true,
             username: true,
             profilePicture: true
-          }
+          },
         }
       }
     });
@@ -594,10 +636,10 @@ const addAuthorityUpdate = async (req, res) => {
     if (newStatus) {
       const currentStatus = currentReport.status;
       const validTransitions = {
-        'OPEN': ['IN_PROGRESS'],
-        'IN_PROGRESS': ['RESOLVED'],
-        'RESOLVED': [], // Only author can close
-        'CLOSED': []
+        OPEN: ['IN_PROGRESS'],
+        IN_PROGRESS: ['RESOLVED'],
+        RESOLVED: [], // Only author can close
+        CLOSED: []
       };
 
       if (!validTransitions[currentStatus]?.includes(newStatus)) {
@@ -624,7 +666,7 @@ const addAuthorityUpdate = async (req, res) => {
               id: true,
               username: true,
               role: true
-            }
+            },
           }
         }
       });
@@ -641,14 +683,14 @@ const addAuthorityUpdate = async (req, res) => {
                 id: true,
                 username: true,
                 role: true
-              }
+              },
             },
             city: {
               select: {
                 id: true,
                 name: true,
                 slug: true
-              }
+              },
             }
           }
         });
@@ -659,7 +701,12 @@ const addAuthorityUpdate = async (req, res) => {
 
     // Notify report author about authority update
     try {
-      await notifyAuthorityUpdate(id, req.user.username, currentReport.title, authorityId);
+      await notifyAuthorityUpdate(
+        id,
+        req.user.username,
+        currentReport.title,
+        authorityId
+      );
     } catch (notificationError) {
       console.error('Error notifying authority update:', notificationError);
       // Don't fail the update if notification fails
@@ -669,13 +716,17 @@ const addAuthorityUpdate = async (req, res) => {
     let resolutionImageUrls = [];
     if (result.authorityUpdate.resolutionImages) {
       try {
-        const imageFilenames = JSON.parse(result.authorityUpdate.resolutionImages);
-        resolutionImageUrls = imageFilenames.map(filename => `/assets/reports/${filename}`);
+        const imageFilenames = JSON.parse(
+          result.authorityUpdate.resolutionImages
+        );
+        resolutionImageUrls = imageFilenames.map(
+          (filename) => `/assets/reports/${filename}`
+        );
       } catch (error) {
         console.error('Error parsing resolution images JSON:', error);
       }
     }
-    
+
     const authorityUpdateWithImages = {
       ...result.authorityUpdate,
       resolutionImageUrls
@@ -686,7 +737,6 @@ const addAuthorityUpdate = async (req, res) => {
       authorityUpdate: authorityUpdateWithImages,
       report: result.updatedReport
     });
-
   } catch (error) {
     console.error('Add authority update error:', error);
     res.status(500).json({
@@ -715,14 +765,14 @@ const closeReport = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -751,14 +801,14 @@ const closeReport = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -775,7 +825,6 @@ const closeReport = async (req, res) => {
       message: 'Report closed successfully',
       report: updatedReport
     });
-
   } catch (error) {
     console.error('Close report error:', error);
     res.status(500).json({
@@ -810,14 +859,14 @@ const deleteReport = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -839,14 +888,14 @@ const deleteReport = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -862,14 +911,13 @@ const deleteReport = async (req, res) => {
         targetId: id,
         performedById: adminId,
         reason: reason.trim()
-      }
+      },
     });
 
     res.json({
       message: 'Report deleted successfully',
       report: deletedReport
     });
-
   } catch (error) {
     console.error('Delete report error:', error);
     res.status(500).json({
@@ -882,7 +930,7 @@ const deleteReport = async (req, res) => {
 const getReportTimeline = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    // const userId = req.user.id; // Not used in this function
     const userRole = req.user.role;
 
     // Get report with basic info
@@ -900,14 +948,14 @@ const getReportTimeline = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -929,7 +977,7 @@ const getReportTimeline = async (req, res) => {
               username: true,
               role: true,
               profilePicture: true
-            }
+            },
           }
         },
         orderBy: { createdAt: 'asc' }
@@ -943,11 +991,11 @@ const getReportTimeline = async (req, res) => {
               username: true,
               role: true,
               profilePicture: true
-            }
+            },
           }
         },
         orderBy: { createdAt: 'asc' }
-      })
+      }),
     ]);
 
     // Combine and sort timeline events
@@ -964,9 +1012,9 @@ const getReportTimeline = async (req, res) => {
             status: report.status
           },
           author: report.author
-        }
+        },
       },
-      ...authorityUpdates.map(update => {
+      ...authorityUpdates.map((update) => {
         // Parse resolution images if they exist
         let resolutionImages = [];
         if (update.resolutionImages) {
@@ -976,7 +1024,7 @@ const getReportTimeline = async (req, res) => {
             console.error('Error parsing resolution images JSON:', error);
           }
         }
-        
+
         return {
           type: 'authority_update',
           timestamp: update.createdAt,
@@ -987,11 +1035,13 @@ const getReportTimeline = async (req, res) => {
               newStatus: update.newStatus
             },
             authority: update.authority,
-            resolutionImages: resolutionImages.map(filename => `/assets/reports/${filename}`)
-          }
+            resolutionImages: resolutionImages.map(
+              (filename) => `/assets/reports/${filename}`
+            )
+          },
         };
       }),
-      ...comments.map(comment => ({
+      ...comments.map((comment) => ({
         type: 'comment',
         timestamp: comment.createdAt,
         data: {
@@ -1000,7 +1050,7 @@ const getReportTimeline = async (req, res) => {
             content: comment.content
           },
           author: comment.author
-        }
+        },
       }))
     ].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
@@ -1009,9 +1059,8 @@ const getReportTimeline = async (req, res) => {
       data: {
         report,
         timeline
-      }
+      },
     });
-
   } catch (error) {
     console.error('Get report timeline error:', error);
     res.status(500).json({
@@ -1045,7 +1094,9 @@ const getNearbyReports = async (req, res) => {
     // Calculate bounding box for approximate filtering (more efficient than distance calculation)
     const earthRadius = 6371; // Earth's radius in kilometers
     const latDelta = (radiusKm / earthRadius) * (180 / Math.PI);
-    const lngDelta = (radiusKm / earthRadius) * (180 / Math.PI) / Math.cos(latitude * Math.PI / 180);
+    const lngDelta =
+      ((radiusKm / earthRadius) * (180 / Math.PI)) /
+      Math.cos((latitude * Math.PI) / 180);
 
     const minLat = latitude - latDelta;
     const maxLat = latitude + latDelta;
@@ -1064,7 +1115,7 @@ const getNearbyReports = async (req, res) => {
         longitude: {
           gte: minLng,
           lte: maxLng
-        }
+        },
       },
       include: {
         author: {
@@ -1072,7 +1123,7 @@ const getNearbyReports = async (req, res) => {
             id: true,
             username: true,
             role: true
-          }
+          },
         },
         attachments: {
           select: {
@@ -1080,37 +1131,43 @@ const getNearbyReports = async (req, res) => {
             filename: true,
             filepath: true,
             mimetype: true
-          }
+          },
         },
         comments: {
           select: {
             id: true
-          }
+          },
         }
       },
       orderBy: {
         createdAt: 'desc'
-      }
+      },
     });
 
     // Filter by actual distance using Haversine formula
-    const nearbyReports = reports.filter(report => {
-      if (!report.latitude || !report.longitude) return false;
-      
+    const nearbyReports = reports.filter((report) => {
+      if (!report.latitude || !report.longitude) {
+        return false;
+      }
+
       const distance = calculateDistance(
-        latitude, longitude,
-        report.latitude, report.longitude
+        latitude,
+        longitude,
+        report.latitude,
+        report.longitude
       );
-      
+
       return distance <= radiusKm;
     });
 
     // Add distance to each report
-    const reportsWithDistance = nearbyReports.map(report => ({
+    const reportsWithDistance = nearbyReports.map((report) => ({
       ...report,
       distance: calculateDistance(
-        latitude, longitude,
-        report.latitude, report.longitude
+        latitude,
+        longitude,
+        report.latitude,
+        report.longitude
       )
     }));
 
@@ -1120,7 +1177,6 @@ const getNearbyReports = async (req, res) => {
       radius: radiusKm,
       count: reportsWithDistance.length
     });
-
   } catch (error) {
     console.error('Error fetching nearby reports:', error);
     res.status(500).json({
@@ -1132,13 +1188,15 @@ const getNearbyReports = async (req, res) => {
 // Helper function to calculate distance between two points using Haversine formula
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371; // Earth's radius in kilometers
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const distance = R * c;
   return distance;
 };

@@ -68,14 +68,14 @@ const createEvent = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -89,7 +89,6 @@ const createEvent = async (req, res) => {
       message: 'Event created successfully',
       event
     });
-
   } catch (error) {
     console.error('Error creating event:', error);
     res.status(500).json({
@@ -123,7 +122,7 @@ const getEvents = async (req, res) => {
           limit: parseInt(limit),
           total: 0,
           pages: 0
-        }
+        },
       });
     }
 
@@ -138,14 +137,14 @@ const getEvents = async (req, res) => {
               username: true,
               role: true,
               profilePicture: true
-            }
+            },
           },
           city: {
             select: {
               id: true,
               name: true,
               slug: true
-            }
+            },
           }
         },
         orderBy: {
@@ -158,9 +157,11 @@ const getEvents = async (req, res) => {
     ]);
 
     // Generate image URLs
-    const eventsWithUrls = events.map(event => ({
+    const eventsWithUrls = events.map((event) => ({
       ...event,
-      imageUrl: event.imageUrl ? `http://localhost:5000${event.imageUrl}` : null
+      imageUrl: event.imageUrl
+        ? `http://localhost:5000${event.imageUrl}`
+        : null
     }));
 
     res.json({
@@ -170,9 +171,8 @@ const getEvents = async (req, res) => {
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / parseInt(limit))
-      }
+      },
     });
-
   } catch (error) {
     console.error('Error fetching events:', error);
     res.status(500).json({
@@ -195,14 +195,14 @@ const getEventById = async (req, res) => {
             username: true,
             role: true,
             profilePicture: true
-          }
+          },
         },
         city: {
           select: {
             id: true,
             name: true,
             slug: true
-          }
+          },
         }
       }
     });
@@ -219,7 +219,6 @@ const getEventById = async (req, res) => {
     }
 
     res.json({ event });
-
   } catch (error) {
     console.error('Error fetching event:', error);
     res.status(500).json({
@@ -243,7 +242,7 @@ const deleteEvent = async (req, res) => {
           select: {
             id: true,
             username: true
-          }
+          },
         }
       }
     });
@@ -263,7 +262,13 @@ const deleteEvent = async (req, res) => {
 
     // Delete the event image if it exists
     if (event.imageUrl) {
-      const imagePath = path.join(__dirname, '..', 'assets', 'events', path.basename(event.imageUrl));
+      const imagePath = path.join(
+        __dirname,
+        '..',
+        'assets',
+        'events',
+        path.basename(event.imageUrl)
+      );
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
       }
@@ -277,7 +282,6 @@ const deleteEvent = async (req, res) => {
     res.json({
       message: 'Event deleted successfully'
     });
-
   } catch (error) {
     console.error('Error deleting event:', error);
     res.status(500).json({
@@ -305,14 +309,14 @@ const getMyEvents = async (req, res) => {
               username: true,
               role: true,
               profilePicture: true
-            }
+            },
           },
           city: {
             select: {
               id: true,
               name: true,
               slug: true
-            }
+            },
           }
         },
         orderBy: {
@@ -325,9 +329,11 @@ const getMyEvents = async (req, res) => {
     ]);
 
     // Generate image URLs
-    const eventsWithUrls = events.map(event => ({
+    const eventsWithUrls = events.map((event) => ({
       ...event,
-      imageUrl: event.imageUrl ? `http://localhost:5000${event.imageUrl}` : null
+      imageUrl: event.imageUrl
+        ? `http://localhost:5000${event.imageUrl}`
+        : null
     }));
 
     res.json({
@@ -337,9 +343,8 @@ const getMyEvents = async (req, res) => {
         limit: parseInt(limit),
         total,
         pages: Math.ceil(total / parseInt(limit))
-      }
+      },
     });
-
   } catch (error) {
     console.error('Error fetching my events:', error);
     res.status(500).json({

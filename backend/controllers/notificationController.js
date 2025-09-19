@@ -1,7 +1,7 @@
-const { 
-  getUserNotifications, 
-  markNotificationsAsRead, 
-  getUnreadCount 
+const {
+  getUserNotifications,
+  markNotificationsAsRead,
+  getUnreadCount
 } = require('../services/notifications');
 
 /**
@@ -11,7 +11,7 @@ const getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
     const { page = 1, limit = 20, unreadOnly = false } = req.query;
-    
+
     const offset = (page - 1) * limit;
     const options = {
       limit: parseInt(limit),
@@ -27,7 +27,7 @@ const getNotifications = async (req, res) => {
         page: parseInt(page),
         limit: parseInt(limit),
         hasMore: notifications.length === parseInt(limit)
-      }
+      },
     });
   } catch (error) {
     console.error('Error getting notifications:', error);

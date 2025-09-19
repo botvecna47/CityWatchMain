@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "cleanup": "node scripts/cleanup.js",
+    "cleanup:schedule": "node -e \"setInterval(() => require('./scripts/cleanup').cleanupOrphanedFiles(), 24 * 60 * 60 * 1000)\""
   },
   "keywords": [],
   "author": "",
@@ -27,7 +29,8 @@
     "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.6",
-    "prisma": "^6.15.0"
+    "prisma": "^6.15.0",
+    "sharp": "^0.33.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

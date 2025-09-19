@@ -8,7 +8,7 @@ const {
   getAlertById,
   updateAlert,
   deleteAlert,
-  getMyAlerts
+  getMyAlerts,
 } = require('../controllers/alertsController');
 
 // Public routes (no auth required)

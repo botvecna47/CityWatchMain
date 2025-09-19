@@ -15,11 +15,11 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  Plus,
   Eye,
   MessageSquare,
   MapPin,
-  LogOut
+  LogOut,
+  Shield
 } from 'lucide-react';
 
 const AuthorityDashboard = () => {
@@ -32,7 +32,7 @@ const AuthorityDashboard = () => {
   const [alerts, setAlerts] = useState([]);
   const [stats, setStats] = useState({
     totalReports: 0,
-    pendingReports: 0,
+    openReports: 0,
     resolvedReports: 0,
     activeEvents: 0
   });
@@ -51,38 +51,42 @@ const AuthorityDashboard = () => {
       console.log('📊 Fetching authority dashboard data for user:', user.username);
 
       // Fetch reports
+      let fetchedReports = [];
       try {
         const reportsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.REPORTS}?limit=10`);
         if (reportsResponse.ok) {
           const reportsData = await reportsResponse.json();
           console.log('📋 Fetched reports:', reportsData.reports?.length || 0);
-          setReports(reportsData.reports || []);
+          fetchedReports = reportsData.reports || [];
+          setReports(fetchedReports);
         }
       } catch (error) {
         console.error('Error fetching reports:', error);
       }
 
       // Fetch events
+      let fetchedEvents = [];
       try {
         const eventsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.EVENTS}?limit=5`);
         if (eventsResponse.ok) {
           const eventsData = await eventsResponse.json();
           console.log('📅 Fetched events:', eventsData.events?.length || 0);
-          setEvents(eventsData.events || []);
+          fetchedEvents = eventsData.events || [];
+          setEvents(fetchedEvents);
         }
       } catch (error) {
         console.error('Error fetching events:', error);
       }
 
-      // Calculate stats
-      const totalReports = reports.length;
-      const pendingReports = reports.filter(r => r.status === 'PENDING').length;
-      const resolvedReports = reports.filter(r => r.status === 'RESOLVED').length;
-      const activeEvents = events.length;
+      // Calculate stats using the fetched data
+      const totalReports = fetchedReports.length;
+      const openReports = fetchedReports.filter(r => r.status === 'OPEN').length;
+      const resolvedReports = fetchedReports.filter(r => r.status === 'RESOLVED').length;
+      const activeEvents = fetchedEvents.length;
 
       setStats({
         totalReports,
-        pendingReports,
+        openReports,
         resolvedReports,
         activeEvents
       });
@@ -129,14 +133,6 @@ const AuthorityDashboard = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <Link to="/reports/create">
-                <Button
-                  leftIcon={<Plus className="w-4 h-4" />}
-                  size="sm"
-                >
-                  Create Report
-                </Button>
-              </Link>
               <Link
                 to="/events"
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
@@ -178,8 +174,8 @@ const AuthorityDashboard = () => {
                 <Clock className="w-6 h-6 text-warning-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pendingReports}</p>
+                <p className="text-sm font-medium text-gray-600">Open</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.openReports}</p>
               </div>
             </div>
           </div>
@@ -230,7 +226,7 @@ const AuthorityDashboard = () => {
                     </div>
                     <div className="flex items-center space-x-2">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        report.status === 'PENDING' ? 'bg-warning-100 text-warning-800' :
+                        report.status === 'OPEN' ? 'bg-warning-100 text-warning-800' :
                         report.status === 'RESOLVED' ? 'bg-success-100 text-success-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>

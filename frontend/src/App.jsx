@@ -21,6 +21,7 @@ import AdminDashboard from './pages/AdminDashboard';
 import AuthorityDashboard from './pages/AuthorityDashboard';
 import Alerts from './pages/Alerts';
 import Events from './pages/Events';
+import Announcements from './pages/Announcements';
 
 function App() {
   return (
@@ -105,6 +106,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Events />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/announcements" 
+              element={
+                <ProtectedRoute>
+                  <Announcements />
                 </ProtectedRoute>
               } 
             />

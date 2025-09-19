@@ -63,6 +63,13 @@ export const API_ENDPOINTS = {
   EVENTS_MY: `${API_BASE_URL}/api/events/my/events`,
   EVENTS_BY_ID: (id) => `${API_BASE_URL}/api/events/${id}`,
   EVENTS_DELETE: (id) => `${API_BASE_URL}/api/events/${id}`,
+
+  // AI endpoints
+  AI_CHAT: `${API_BASE_URL}/api/ai/chat`,
+  AI_CITY_UPDATES: `${API_BASE_URL}/api/ai/city-updates`,
+  AI_SUGGESTIONS: `${API_BASE_URL}/api/ai/suggestions`,
+  AI_HELP: `${API_BASE_URL}/api/ai/help`,
+  AI_STATUS: `${API_BASE_URL}/api/ai/status`,
 };
 
 export default API_BASE_URL;

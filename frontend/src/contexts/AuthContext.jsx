@@ -18,6 +18,16 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
     if (token) {
+      // Load user data from localStorage first for immediate display
+      const cachedUser = localStorage.getItem('user');
+      if (cachedUser) {
+        try {
+          setUser(JSON.parse(cachedUser));
+        } catch (error) {
+          console.error('Error parsing cached user data:', error);
+        }
+      }
+      // Then fetch fresh data from API
       fetchUserData();
     } else {
       setLoading(false);
@@ -75,6 +85,8 @@ export const AuthProvider = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+        // Cache user data in localStorage for faster loading
+        localStorage.setItem('user', JSON.stringify(data.user));
       } else if (response.status === 401) {
         // Token expired, try to refresh
         try {

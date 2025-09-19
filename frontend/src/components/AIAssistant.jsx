@@ -1,23 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageCircle, X, Send } from 'lucide-react';
+import { MessageCircle, X, Send, Lightbulb, MapPin } from 'lucide-react';
 import Button from './ui/Button';
+import { API_ENDPOINTS } from '../config/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const AIAssistant = () => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: 'ai',
-      text: 'Hello! I\'m your AI assistant. How can I help you with CityWatch today?',
+      text: 'Hello! I\'m your CityWatch AI assistant. I can tell you about the latest happenings in your city!',
       timestamp: new Date()
     }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Clear chatbox state when user changes (logout/login)
+  useEffect(() => {
+    // Reset all state when user changes
+    setMessages([
+      {
+        id: 1,
+        type: 'ai',
+        text: 'Hello! I\'m your CityWatch AI assistant. I can tell you about the latest happenings in your city!',
+        timestamp: new Date()
+      }
+    ]);
+    setInputValue('');
+    setIsTyping(false);
+    setSuggestions([]);
+    setIsLoading(false);
+    setIsOpen(false);
+  }, [user?.id]); // Reset when user ID changes
+
+  // Load initial suggestions when component mounts
+  useEffect(() => {
+    if (isOpen && suggestions.length === 0) {
+      loadSuggestions();
+    }
+  }, [isOpen]);
+
+  const loadSuggestions = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(API_ENDPOINTS.AI_SUGGESTIONS, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuggestions(data.data.suggestions || []);
+      }
+    } catch (error) {
+      console.error('Failed to load suggestions:', error);
+    }
+  };
 
   const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isLoading) return;
 
     const userMessage = {
       id: Date.now(),
@@ -27,20 +76,67 @@ const AIAssistant = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue;
     setInputValue('');
     setIsTyping(true);
+    setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse = {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(API_ENDPOINTS.AI_CHAT, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: currentInput })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const aiResponse = {
+          id: Date.now() + 1,
+          type: 'ai',
+          text: data.data.message,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, aiResponse]);
+        
+        // Update suggestions if provided
+        if (data.data.suggestions) {
+          setSuggestions(data.data.suggestions);
+        }
+      } else {
+        const errorData = await response.json();
+        const errorResponse = {
+          id: Date.now() + 1,
+          type: 'ai',
+          text: `Sorry, I encountered an error: ${errorData.error || 'Please try again.'}`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorResponse]);
+      }
+    } catch (error) {
+      console.error('AI Chat error:', error);
+      const errorResponse = {
         id: Date.now() + 1,
         type: 'ai',
-        text: 'Thank you for your message! I\'m here to help with any questions about CityWatch.',
+        text: 'Sorry, I\'m having trouble connecting right now. Please try again later.',
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, aiResponse]);
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
       setIsTyping(false);
-    }, 1000);
+      setIsLoading(false);
+    }
+  };
+
+  const handleSuggestionClick = (suggestion) => {
+    setInputValue(suggestion.text);
+    // Auto-send suggestion
+    setTimeout(() => {
+      handleSendMessage();
+    }, 100);
   };
 
   const handleKeyPress = (e) => {
@@ -116,7 +212,7 @@ const AIAssistant = () => {
                         : 'bg-gray-100 text-gray-900'
                     }`}
                   >
-                    <p className="text-sm">{message.text}</p>
+                    <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                   </div>
                 </motion.div>
               ))}
@@ -136,6 +232,31 @@ const AIAssistant = () => {
                   </div>
                 </motion.div>
               )}
+
+              {/* Smart Suggestions */}
+              {suggestions.length > 0 && !isTyping && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-2"
+                >
+                  <div className="flex items-center space-x-2 text-xs text-gray-500">
+                    <Lightbulb className="w-3 h-3" />
+                    <span>Quick suggestions:</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestions.slice(0, 4).map((suggestion, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleSuggestionClick(suggestion)}
+                        className="px-3 py-1 bg-blue-50 text-blue-600 text-xs rounded-full hover:bg-blue-100 transition-colors border border-blue-200"
+                      >
+                        {suggestion.text}
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
             </div>
 
             {/* Input */}
@@ -151,11 +272,11 @@ const AIAssistant = () => {
                 />
                 <Button
                   onClick={handleSendMessage}
-                  disabled={!inputValue.trim()}
+                  disabled={!inputValue.trim() || isLoading}
                   size="sm"
                   leftIcon={<Send className="w-4 h-4" />}
                 >
-                  Send
+                  {isLoading ? 'Sending...' : 'Send'}
                 </Button>
               </div>
             </div>

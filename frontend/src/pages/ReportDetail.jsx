@@ -681,7 +681,6 @@ const ReportDetail = () => {
                             </div>
                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{attachment.filename}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">{Math.round(attachment.size / 1024)} KB</p>
-                            <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">URL: {attachment.url}</p>
                           </div>
                         ) : (
                           <div>

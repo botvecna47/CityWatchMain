@@ -1,6 +1,7 @@
 const prisma = require('../services/database');
 const fs = require('fs');
 const path = require('path');
+const { notifyEventCreated } = require('../services/notificationService');
 
 // Create a new event
 const createEvent = async (req, res) => {
@@ -79,6 +80,19 @@ const createEvent = async (req, res) => {
         }
       }
     });
+
+    // Notify all users in the city about the new event
+    try {
+      await notifyEventCreated(
+        cityId,
+        event.id,
+        event.title,
+        event.creator.username
+      );
+    } catch (notificationError) {
+      console.error('Error notifying users of new event:', notificationError);
+      // Don't fail the event creation if notification fails
+    }
 
     // Generate image URL if present
     if (event.imageUrl) {

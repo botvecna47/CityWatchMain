@@ -3,18 +3,20 @@ const prisma = require('./database');
 /**
  * Create a notification for a user
  * @param {string} userId - The user ID to notify
- * @param {string} type - The notification type (status_change, new_comment, report_resolved, authority_update)
+ * @param {string} type - The notification type (status_change, new_comment, report_resolved, authority_update, ALERT_CREATED, EVENT_CREATED)
  * @param {string} message - The notification message
  * @param {string} reportId - Optional report ID for context
+ * @param {string} alertId - Optional alert ID for context
  */
-const createNotification = async (userId, type, message, reportId = null) => {
+const createNotification = async (userId, type, message, reportId = null, alertId = null) => {
   try {
     const notification = await prisma.notification.create({
       data: {
         userId,
         type,
         message,
-        reportId
+        reportId,
+        alertId
       },
     });
 
@@ -34,17 +36,19 @@ const createNotification = async (userId, type, message, reportId = null) => {
  * @param {string} type - The notification type
  * @param {string} message - The notification message
  * @param {string} reportId - Optional report ID for context
+ * @param {string} alertId - Optional alert ID for context
  */
 const createNotificationsForUsers = async (
   userIds,
   type,
   message,
-  reportId = null
+  reportId = null,
+  alertId = null
 ) => {
   try {
     const notifications = await Promise.all(
       userIds.map((userId) =>
-        createNotification(userId, type, message, reportId)
+        createNotification(userId, type, message, reportId, alertId)
       )
     );
 

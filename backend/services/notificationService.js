@@ -138,8 +138,104 @@ const notifyReportClosed = async(reportId, reportTitle, userId) => {
   }
 };
 
+/**
+ * Notify all users in a city when a new alert is created
+ * @param {string} cityId - The city ID where the alert was created
+ * @param {string} alertId - The alert ID
+ * @param {string} alertTitle - The alert title
+ * @param {string} creatorUsername - The username of the alert creator
+ */
+const notifyAlertCreated = async(
+  cityId,
+  alertId,
+  alertTitle,
+  creatorUsername
+) => {
+  try {
+    // Get all users in the same city
+    const users = await prisma.user.findMany({
+      where: {
+        cityId: cityId,
+      },
+      select: { id: true },
+    });
+
+    if (users.length === 0) {
+      console.log(`No users found for city ${cityId}`);
+      return;
+    }
+
+    const userIds = users.map((user) => user.id);
+    const message = `New alert: "${alertTitle}" posted by ${creatorUsername}`;
+
+    await createNotificationsForUsers(
+      userIds,
+      'ALERT_CREATED',
+      message,
+      null,
+      alertId
+    );
+
+    console.log(
+      `Notified ${userIds.length} users about new alert ${alertId}`
+    );
+  } catch (error) {
+    console.error('Error notifying users of new alert:', error);
+    throw error;
+  }
+};
+
+/**
+ * Notify all users in a city when a new event is created
+ * @param {string} cityId - The city ID where the event was created
+ * @param {string} eventId - The event ID
+ * @param {string} eventTitle - The event title
+ * @param {string} creatorUsername - The username of the event creator
+ */
+const notifyEventCreated = async(
+  cityId,
+  eventId,
+  eventTitle,
+  creatorUsername
+) => {
+  try {
+    // Get all users in the same city
+    const users = await prisma.user.findMany({
+      where: {
+        cityId: cityId,
+      },
+      select: { id: true },
+    });
+
+    if (users.length === 0) {
+      console.log(`No users found for city ${cityId}`);
+      return;
+    }
+
+    const userIds = users.map((user) => user.id);
+    const message = `New event: "${eventTitle}" posted by ${creatorUsername}`;
+
+    await createNotificationsForUsers(
+      userIds,
+      'EVENT_CREATED',
+      message,
+      null,
+      null
+    );
+
+    console.log(
+      `Notified ${userIds.length} users about new event ${eventId}`
+    );
+  } catch (error) {
+    console.error('Error notifying users of new event:', error);
+    throw error;
+  }
+};
+
 module.exports = {
   notifyAuthoritiesOfNewReport,
   notifyAuthorityUpdate,
   notifyReportClosed,
+  notifyAlertCreated,
+  notifyEventCreated,
 };

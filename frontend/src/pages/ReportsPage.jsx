@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API_ENDPOINTS } from '../config/api';
+import Button from '../components/ui/Button';
 
 const ReportsPage = () => {
   const { user, makeAuthenticatedRequest } = useAuth();
@@ -175,12 +176,12 @@ const ReportsPage = () => {
         <div className="container mx-auto px-4">
           <div className="text-center py-8">
             <p className="text-red-600 mb-4">{error}</p>
-            <button
+            <Button
               onClick={fetchReports}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              variant="primary"
             >
               Try Again
-            </button>
+            </Button>
           </div>
         </div>
       </div>

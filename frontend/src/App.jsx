@@ -7,16 +7,18 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
+import AIAssistant from './components/AIAssistant';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import Dashboard from './pages/Dashboard';
+import RoleBasedDashboard from './components/RoleBasedDashboard';
 import CreateReport from './pages/CreateReport';
 import ReportDetail from './pages/ReportDetail';
 import ReportsPage from './pages/ReportsPage';
 import Settings from './pages/Settings';
 import Notifications from './pages/Notifications';
 import AdminDashboard from './pages/AdminDashboard';
+import AuthorityDashboard from './pages/AuthorityDashboard';
 import Alerts from './pages/Alerts';
 import Events from './pages/Events';
 
@@ -38,7 +40,7 @@ function App() {
               path="/dashboard" 
               element={
                 <ProtectedRoute>
-                  <Dashboard />
+                  <RoleBasedDashboard />
                 </ProtectedRoute>
               } 
             />
@@ -108,6 +110,7 @@ function App() {
             />
             </Routes>
             </div>
+            <AIAssistant />
               </Router>
             </ToastProvider>
           </NotificationProvider>

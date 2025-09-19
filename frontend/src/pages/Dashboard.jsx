@@ -4,7 +4,9 @@ import { useToast } from '../contexts/ToastContext';
 import { Link } from 'react-router-dom';
 import LazyImage from '../components/LazyImage';
 import CityMap from '../components/CityMap';
+import Button from '../components/ui/Button';
 import { API_ENDPOINTS } from '../config/api';
+import { Plus, LogOut } from 'lucide-react';
 
 const Dashboard = () => {
   const { user, logout, makeAuthenticatedRequest, loading: authLoading } = useAuth();
@@ -26,28 +28,59 @@ const Dashboard = () => {
 
     try {
       setDataLoading(true);
+      console.log('📊 Fetching dashboard data for user:', user.username, 'City ID:', user.cityId);
+
+      // Check if user has a city assigned
+      if (!user.cityId) {
+        console.log('⚠️ User has no city assigned');
+        setAnnouncements([]);
+        setAlerts([]);
+        setTrendingReports([]);
+        return;
+      }
 
       // Fetch announcements (using events as announcements for now)
-      const announcementsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.EVENTS}?limit=5`);
-      if (announcementsResponse.ok) {
-        const announcementsData = await announcementsResponse.json();
-        setAnnouncements(announcementsData.events || []);
+      try {
+        const announcementsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.EVENTS}?limit=5`);
+        if (announcementsResponse.ok) {
+          const announcementsData = await announcementsResponse.json();
+          console.log('📅 Fetched events:', announcementsData.events?.length || 0);
+          setAnnouncements(announcementsData.events || []);
+        } else {
+          console.log('❌ Failed to fetch events:', announcementsResponse.status);
+        }
+      } catch (error) {
+        console.error('Error fetching events:', error);
       }
 
       // Fetch alerts
-      const alertsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.ALERTS}?limit=5`);
-      if (alertsResponse.ok) {
-        const alertsData = await alertsResponse.json();
-        setAlerts(alertsData.alerts || []);
+      try {
+        const alertsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.ALERTS}?limit=5`);
+        if (alertsResponse.ok) {
+          const alertsData = await alertsResponse.json();
+          console.log('🚨 Fetched alerts:', alertsData.alerts?.length || 0);
+          setAlerts(alertsData.alerts || []);
+        } else {
+          console.log('❌ Failed to fetch alerts:', alertsResponse.status);
+        }
+      } catch (error) {
+        console.error('Error fetching alerts:', error);
       }
 
       // Fetch trending reports (most commented)
-      const reportsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.REPORTS}?limit=10`);
-      if (reportsResponse.ok) {
-        const reportsData = await reportsResponse.json();
-        // Sort by comment count (trending)
-        const sortedReports = (reportsData.reports || []).sort((a, b) => (b.comments?.length || 0) - (a.comments?.length || 0));
-        setTrendingReports(sortedReports.slice(0, 7));
+      try {
+        const reportsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.REPORTS}?limit=10`);
+        if (reportsResponse.ok) {
+          const reportsData = await reportsResponse.json();
+          console.log('📝 Fetched reports:', reportsData.reports?.length || 0);
+          // Sort by comment count (trending)
+          const sortedReports = (reportsData.reports || []).sort((a, b) => (b.comments?.length || 0) - (a.comments?.length || 0));
+          setTrendingReports(sortedReports.slice(0, 7));
+        } else {
+          console.log('❌ Failed to fetch reports:', reportsResponse.status);
+        }
+      } catch (error) {
+        console.error('Error fetching reports:', error);
       }
 
     } catch (error) {
@@ -154,21 +187,22 @@ const Dashboard = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <Link
-                to="/reports/create"
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Create Report
+              <Link to="/reports/create">
+                <Button
+                  leftIcon={<Plus className="w-4 h-4" />}
+                  size="sm"
+                >
+                  Create Report
+                </Button>
               </Link>
-              <button
+              <Button
                 onClick={handleLogout}
-                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                variant="secondary"
+                size="sm"
+                leftIcon={<LogOut className="w-4 h-4" />}
               >
                 Logout
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -176,6 +210,26 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* No City Assigned Warning */}
+        {!user.cityId && (
+          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-yellow-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div>
+                <h3 className="text-sm font-medium text-yellow-800">
+                  City Assignment Required
+                </h3>
+                <p className="text-sm text-yellow-700 mt-1">
+                  You need to be assigned to a city to view reports, events, and alerts. Please contact an administrator or update your profile.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Left Column - Announcements & Alerts */}
@@ -198,7 +252,13 @@ const Dashboard = () => {
                   ))}
                 </div>
               ) : announcements.length === 0 ? (
-                <p className="text-gray-500 text-sm">No announcements yet</p>
+                <div className="text-center py-4">
+                  <svg className="mx-auto h-8 w-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-gray-500 text-sm">No events scheduled</p>
+                  <p className="text-gray-400 text-xs mt-1">Check back later for updates</p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {announcements.map((announcement) => (
@@ -232,7 +292,13 @@ const Dashboard = () => {
                   ))}
                 </div>
               ) : alerts.length === 0 ? (
-                <p className="text-gray-500 text-sm">No alerts at this time</p>
+                <div className="text-center py-4">
+                  <svg className="mx-auto h-8 w-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-gray-500 text-sm">No alerts at this time</p>
+                  <p className="text-gray-400 text-xs mt-1">All systems running smoothly</p>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {alerts.map((alert) => (

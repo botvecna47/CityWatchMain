@@ -174,26 +174,13 @@ const getReports = async (req, res) => {
       }
     }
 
-    // If user has no city, return empty results
-    if (!userCityId) {
-      return res.json({
-        reports: [],
-        pagination: {
-          page: parsedPage,
-          limit: parsedLimit,
-          total: 0,
-          pages: 0
-        },
-        categoryStats: {}
-      });
-    }
+    // Users can now see reports from all cities regardless of their city assignment
 
     const skip = (parsedPage - 1) * parsedLimit;
     const take = parsedLimit;
 
-    // Build where clause
+    // Build where clause - allow users to see reports from all cities
     const where = {
-      cityId: userCityId,
       deleted: false
     };
 
@@ -321,8 +308,8 @@ const getReportById = async (req, res) => {
       where: {
         id,
         deleted: false,
-        // City scoping: users can only see reports from their city unless admin
-        ...(userRole !== 'admin' ? { cityId: userCityId } : {})
+        // Allow all users to view reports from any city, but admins see everything
+        // Citizens and authorities can view all reports but only comment
       },
       include: {
         author: {

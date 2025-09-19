@@ -1,12 +1,14 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationDropdown from './NotificationDropdown';
-import ThemeToggle from './ThemeToggle';
+import { Shield, Menu, X } from 'lucide-react';
 
 const Navbar = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
   const isActive = (path) => {
     return location.pathname === path;
@@ -16,46 +18,54 @@ const Navbar = () => {
     logout();
   };
 
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
   return (
-    <nav className="bg-white dark:bg-slate-800 shadow-lg dark:shadow-card-dark border-b border-slate-200 dark:border-slate-700">
-      <div className="container mx-auto px-4">
+    <nav className="bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-200/60 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
-          <div className="flex items-center">
-            <Link to="/" className="text-2xl font-bold text-brand-600 dark:text-brand-400">
-              CityWatch
+          <motion.div 
+            className="flex items-center"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Link to="/" className="flex items-center space-x-2 group">
+              <div className="w-8 h-8 bg-primary-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                <Shield className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-2xl font-bold text-gray-900 group-hover:text-primary-600 transition-colors">
+                CityWatch
+              </span>
             </Link>
-          </div>
+          </motion.div>
           
-          <div className="hidden md:flex space-x-8">
-            <Link
-              to="/"
-              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                isActive('/') 
-                  ? 'text-blue-600 bg-blue-50' 
-                  : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-              }`}
-            >
-              Home
-            </Link>
-            
+          <motion.div 
+            className="hidden md:flex space-x-1"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3, delay: 0.1 }}
+          >
             {user ? (
               <>
                 <Link
                   to="/dashboard"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive('/dashboard') 
-                      ? 'text-blue-600 bg-blue-50' 
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                      ? 'text-primary-600 bg-primary-50 shadow-sm' 
+                      : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
                   }`}
                 >
                   Dashboard
                 </Link>
                 <Link
                   to="/reports"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive('/reports') 
-                      ? 'text-blue-600 bg-blue-50' 
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                      ? 'text-primary-600 bg-primary-50 shadow-sm' 
+                      : 'text-gray-700 hover:text-primary-600 hover:bg-gray-50'
                   }`}
                 >
                   Reports
@@ -105,7 +115,6 @@ const Navbar = () => {
                   </Link>
                 )}
                 <div className="flex items-center space-x-4">
-                  <ThemeToggle />
                   <NotificationDropdown />
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
@@ -135,6 +144,16 @@ const Navbar = () => {
               </>
             ) : (
               <>
+                <Link
+                  to="/"
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive('/') 
+                      ? 'text-blue-600 bg-blue-50' 
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Home
+                </Link>
                 <Link
                   to="/login"
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -172,17 +191,6 @@ const Navbar = () => {
         {/* Mobile menu */}
         <div className="md:hidden">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <Link
-              to="/"
-              className={`block px-3 py-2 rounded-md text-base font-medium ${
-                isActive('/') 
-                  ? 'text-blue-600 bg-blue-50' 
-                  : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-              }`}
-            >
-              Home
-            </Link>
-            
             {user ? (
               <>
                 <Link
@@ -254,6 +262,16 @@ const Navbar = () => {
               </>
             ) : (
               <>
+                <Link
+                  to="/"
+                  className={`block px-3 py-2 rounded-md text-base font-medium ${
+                    isActive('/') 
+                      ? 'text-blue-600 bg-blue-50' 
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Home
+                </Link>
                 <Link
                   to="/login"
                   className={`block px-3 py-2 rounded-md text-base font-medium ${

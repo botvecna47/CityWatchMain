@@ -47,8 +47,6 @@ const AdminDashboard = () => {
   const [error, setError] = useState('');
   const [showCreateAdminModal, setShowCreateAdminModal] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ username: '', email: '', password: '', cityId: '' });
-  const [showCreateAuthorityModal, setShowCreateAuthorityModal] = useState(false);
-  const [newAuthority, setNewAuthority] = useState({ username: '', email: '', password: '', cityId: '' });
   const [dateRange, setDateRange] = useState('7d');
   const [refreshKey, setRefreshKey] = useState(0);
   const { user, makeAuthenticatedRequest } = useAuth();
@@ -234,33 +232,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // Create new authority
-  const createAuthority = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await makeAuthenticatedRequest('http://localhost:5000/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newAuthority,
-          role: 'authority'
-        })
-      });
-
-      if (response.ok) {
-        setShowCreateAuthorityModal(false);
-        setNewAuthority({ username: '', email: '', password: '', cityId: '' });
-        fetchUsers();
-        fetchAuditLogs();
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error);
-      }
-    } catch (error) {
-      setError('Failed to create authority');
-    }
-  };
-
   // Refresh all data
   const refreshData = () => {
     setRefreshKey(prev => prev + 1);
@@ -275,9 +246,9 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchStats();
     fetchAIInsights();
-      fetchUsers();
-      fetchReports();
-      fetchAuditLogs();
+    fetchUsers();
+    fetchReports();
+    fetchAuditLogs();
   }, [refreshKey]);
 
   // Generate sample chart data
@@ -346,13 +317,13 @@ const AdminDashboard = () => {
   ];
 
   if (!user || user.role !== 'admin') {
-  return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4">
             Access Denied
           </h1>
-          <p className="text-gray-600">
+          <p className="text-slate-600 dark:text-slate-400">
             You need admin privileges to access this page.
           </p>
         </div>
@@ -361,16 +332,16 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-          <div className="mb-8">
+        <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
                 Admin Dashboard
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-slate-600 dark:text-slate-400 mt-2">
                 Monitor and manage your CityWatch platform
               </p>
             </div>
@@ -378,7 +349,7 @@ const AdminDashboard = () => {
               <select
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
               >
                 <option value="7d">Last 7 days</option>
                 <option value="30d">Last 30 days</option>
@@ -393,44 +364,44 @@ const AdminDashboard = () => {
               </Button>
             </div>
           </div>
-          </div>
+        </div>
 
         {/* Error Display */}
-          {error && (
+        {error && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md"
+            className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md"
           >
             <div className="flex items-center">
-              <XCircle className="w-5 h-5 text-red-600 mr-2" />
-              <p className="text-red-800">{error}</p>
+              <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 mr-2" />
+              <p className="text-red-800 dark:text-red-200">{error}</p>
             </div>
           </motion.div>
         )}
 
         {/* Tab Navigation */}
         <div className="mb-8">
-          <nav className="flex space-x-8 border-b border-gray-200">
+          <nav className="flex space-x-8 border-b border-slate-200 dark:border-slate-700">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
-                  <button
+                <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center px-1 py-4 text-sm font-medium border-b-2 transition-colors ${
                     activeTab === tab.id
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
+                      ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                      : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
                   <Icon className="w-4 h-4 mr-2" />
                   {tab.label}
-                  </button>
+                </button>
               );
             })}
-              </nav>
-          </div>
+          </nav>
+        </div>
 
         {/* Tab Content */}
         <AnimatePresence mode="wait">
@@ -447,25 +418,25 @@ const AdminDashboard = () => {
               <KPICards data={stats} />
 
               {/* Quick Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.1 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
+                  className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                         Active Reports
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                         {stats?.activeReports || 0}
                       </p>
                     </div>
-                    <div className="p-3 bg-blue-100 rounded-full">
-                      <FileText className="w-6 h-6 text-blue-600" />
-                  </div>
+                    <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-full">
+                      <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
                   </div>
                 </motion.div>
 
@@ -473,20 +444,20 @@ const AdminDashboard = () => {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.2 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
+                  className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                         Total Users
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                         {stats?.totalUsers || 0}
                       </p>
                     </div>
-                    <div className="p-3 bg-green-100 rounded-full">
-                      <Users className="w-6 h-6 text-green-600" />
-                  </div>
+                    <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-full">
+                      <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    </div>
                   </div>
                 </motion.div>
 
@@ -494,20 +465,20 @@ const AdminDashboard = () => {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.3 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
+                  className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                         Resolution Rate
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                         {stats?.resolutionRate || 0}%
                       </p>
-                </div>
-                    <div className="p-3 bg-yellow-100 rounded-full">
-                      <CheckCircle className="w-6 h-6 text-yellow-600" />
-              </div>
+                    </div>
+                    <div className="p-3 bg-yellow-100 dark:bg-yellow-900/20 rounded-full">
+                      <CheckCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                    </div>
                   </div>
                 </motion.div>
 
@@ -515,20 +486,20 @@ const AdminDashboard = () => {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.4 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
+                  className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                         Avg Response Time
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                         {stats?.avgResponseTime || 0}h
                       </p>
                     </div>
-                    <div className="p-3 bg-purple-100 rounded-full">
-                      <Clock className="w-6 h-6 text-purple-600" />
-                  </div>
+                    <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-full">
+                      <Clock className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                    </div>
                   </div>
                 </motion.div>
               </div>
@@ -538,26 +509,26 @@ const AdminDashboard = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="bg-white rounded-xl shadow-lg p-6"
+                className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6"
               >
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
                   Recent Activity
                 </h3>
                 <div className="space-y-4">
                   {auditLogs.slice(0, 5).map((log, index) => (
-                    <div key={log.id} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                      <div className="p-2 bg-blue-100 rounded-full">
-                        <Activity className="w-4 h-4 text-blue-600" />
-                    </div>
+                    <div key={log.id} className="flex items-center space-x-4 p-3 bg-slate-50 dark:bg-slate-700 rounded-lg">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-full">
+                        <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                           {log.action}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           {new Date(log.createdAt).toLocaleString()}
                         </p>
-                  </div>
-                  </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </motion.div>
@@ -581,12 +552,12 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <StatusDistributionChart data={chartData.statusData} />
                 <ResponseTimeChart data={chartData.responseTimeData} />
-            </div>
+              </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <UserActivityChart data={chartData.userActivityData} />
                 <PerformanceMetricsChart data={chartData.performanceData} />
-            </div>
+              </div>
             </motion.div>
           )}
 
@@ -600,106 +571,97 @@ const AdminDashboard = () => {
               className="space-y-6"
             >
               {/* Users Header */}
-                <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                   User Management
                 </h2>
-                <div className="flex space-x-3">
-                  <Button
-                    onClick={() => setShowCreateAuthorityModal(true)}
-                    leftIcon={<Shield className="w-4 h-4" />}
-                    variant="secondary"
-                  >
-                    Create Authority
-                  </Button>
-                  <Button
-                    onClick={() => setShowCreateAdminModal(true)}
-                    leftIcon={<Users className="w-4 h-4" />}
-                  >
-                    Create Admin
-                  </Button>
-                </div>
+                <Button
+                  onClick={() => setShowCreateAdminModal(true)}
+                  leftIcon={<Users className="w-4 h-4" />}
+                >
+                  Create Admin
+                </Button>
               </div>
 
               {/* Users Table */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+                <div className="overflow-x-auto">
                   <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <thead className="bg-slate-50 dark:bg-slate-700">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           User
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Role
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           City
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Actions
                         </th>
-                    </tr>
-                  </thead>
-                    <tbody className="divide-y divide-gray-200">
-                    {users.map((user) => (
-                        <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {users.map((user) => (
+                        <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                <Users className="w-5 h-5 text-gray-500" />
+                              <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center">
+                                <Users className="w-5 h-5 text-slate-500" />
                               </div>
                               <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
+                                <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                   {user.username}
                                 </div>
-                                <div className="text-sm text-gray-500">
+                                <div className="text-sm text-slate-500 dark:text-slate-400">
                                   {user.email}
                                 </div>
                               </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <select
                               value={user.role}
                               onChange={(e) => updateUserRole(user.id, e.target.value)}
-                              className="px-2 py-1 text-sm border border-gray-300 rounded bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="px-2 py-1 text-sm border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                             >
                               <option value="citizen">Citizen</option>
                               <option value="authority">Authority</option>
                               <option value="admin">Admin</option>
                             </select>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {user.city?.name || 'No city'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
+                            {user.city?.name || 'No city'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                               user.isBanned 
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-green-100 text-green-800'
-                          }`}>
-                            {user.isBanned ? 'Banned' : 'Active'}
-                          </span>
-                        </td>
+                                ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200'
+                                : 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
+                            }`}>
+                              {user.isBanned ? 'Banned' : 'Active'}
+                            </span>
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <Button
                               size="sm"
                               variant={user.isBanned ? "success" : "error"}
-                            onClick={() => toggleUserBan(user.id)}
-                          >
-                            {user.isBanned ? 'Unban' : 'Ban'}
+                              onClick={() => toggleUserBan(user.id)}
+                            >
+                              {user.isBanned ? 'Unban' : 'Ban'}
                             </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
             </motion.div>
           )}
 
@@ -714,92 +676,92 @@ const AdminDashboard = () => {
             >
               {/* Reports Header */}
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                   Report Management
                 </h2>
               </div>
 
               {/* Reports Table */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+                <div className="overflow-x-auto">
                   <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <thead className="bg-slate-50 dark:bg-slate-700">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Report
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Category
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Author
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Actions
                         </th>
-                    </tr>
-                  </thead>
-                    <tbody className="divide-y divide-gray-200">
-                    {reports.map((report) => (
-                        <tr key={report.id} className="hover:bg-gray-50">
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {reports.map((report) => (
+                        <tr key={report.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                           <td className="px-6 py-4">
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                                 {report.title}
                               </div>
-                              <div className="text-sm text-gray-500 truncate max-w-xs">
+                              <div className="text-sm text-slate-500 dark:text-slate-400 truncate max-w-xs">
                                 {report.description}
                               </div>
                             </div>
-                        </td>
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                          {report.category}
+                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200">
+                              {report.category}
                             </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              report.status === 'OPEN' ? 'bg-yellow-100 text-yellow-800' :
-                              report.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                              report.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
-                              'bg-gray-100 text-gray-800'
+                              report.status === 'OPEN' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200' :
+                              report.status === 'IN_PROGRESS' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200' :
+                              report.status === 'RESOLVED' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200' :
+                              'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200'
                             }`}>
-                            {report.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {report.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
                             {report.author?.username || 'Unknown'}
-                        </td>
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                          {report.deleted ? (
+                            {report.deleted ? (
                               <Button
                                 size="sm"
                                 variant="success"
-                              onClick={() => restoreReport(report.id)}
+                                onClick={() => restoreReport(report.id)}
                                 leftIcon={<RotateCcw className="w-3 h-3" />}
-                            >
-                              Restore
+                              >
+                                Restore
                               </Button>
-                          ) : (
+                            ) : (
                               <Button
                                 size="sm"
                                 variant="error"
-                              onClick={() => deleteReport(report.id)}
+                                onClick={() => deleteReport(report.id)}
                                 leftIcon={<Trash2 className="w-3 h-3" />}
-                            >
-                              Delete
+                              >
+                                Delete
                               </Button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
             </motion.div>
           )}
 
@@ -814,57 +776,57 @@ const AdminDashboard = () => {
             >
               {/* Audit Logs Header */}
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                   Audit Logs
                 </h2>
               </div>
 
               {/* Audit Logs Table */}
-              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="overflow-x-auto">
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
+                <div className="overflow-x-auto">
                   <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <thead className="bg-slate-50 dark:bg-slate-700">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Action
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Performed By
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Target
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Timestamp
                         </th>
-                    </tr>
-                  </thead>
-                    <tbody className="divide-y divide-gray-200">
-                    {auditLogs.map((log) => (
-                        <tr key={log.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                      {auditLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-slate-900 dark:text-slate-100">
                               {log.action}
                             </div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-slate-500 dark:text-slate-400">
                               {log.details}
                             </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
                             {log.performedBy?.username || 'System'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
                             {log.targetType}: {log.targetId}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                             {new Date(log.createdAt).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
             </motion.div>
           )}
 
@@ -894,22 +856,22 @@ const AdminDashboard = () => {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
+                  className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6"
                 >
                   <div className="flex items-center space-x-3 mb-4">
                     <Lightbulb className="w-6 h-6 text-yellow-500" />
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                       Smart Recommendations
                     </h3>
                   </div>
                   <div className="space-y-4">
                     {aiInsights?.recommendations?.map((rec, index) => (
-                      <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                      <div key={index} className="p-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
                         <div className="flex items-start space-x-3">
                           <div className={`p-1 rounded-full ${
-                            rec.priority === 'high' ? 'bg-red-100' :
-                            rec.priority === 'medium' ? 'bg-yellow-100' :
-                            'bg-green-100'
+                            rec.priority === 'high' ? 'bg-red-100 dark:bg-red-900/20' :
+                            rec.priority === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/20' :
+                            'bg-green-100 dark:bg-green-900/20'
                           }`}>
                             <div className={`w-2 h-2 rounded-full ${
                               rec.priority === 'high' ? 'bg-red-500' :
@@ -918,17 +880,17 @@ const AdminDashboard = () => {
                             }`} />
                           </div>
                           <div>
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                               {rec.message}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                               {rec.action}
                             </p>
                           </div>
                         </div>
                       </div>
                     )) || (
-                      <p className="text-gray-500 text-center py-8">
+                      <p className="text-slate-500 dark:text-slate-400 text-center py-8">
                         No recommendations available
                       </p>
                     )}
@@ -939,34 +901,34 @@ const AdminDashboard = () => {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
+                  className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6"
                 >
                   <div className="flex items-center space-x-3 mb-4">
                     <Zap className="w-6 h-6 text-blue-500" />
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                       Predictions
                     </h3>
                   </div>
                   <div className="space-y-4">
                     {aiInsights?.predictions?.map((pred, index) => (
-                      <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                      <div key={index} className="p-4 bg-slate-50 dark:bg-slate-700 rounded-lg">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium text-gray-900">
+                          <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
                             {pred.type.replace('_', ' ').toUpperCase()}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
                             {Math.round(pred.confidence * 100)}% confidence
                           </span>
                         </div>
-                        <p className="text-lg font-bold text-gray-900">
+                        <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
                           {pred.prediction}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
                           {pred.timeframe}
                         </p>
                       </div>
                     )) || (
-                      <p className="text-gray-500 text-center py-8">
+                      <p className="text-slate-500 dark:text-slate-400 text-center py-8">
                         No predictions available
                       </p>
                     )}
@@ -980,34 +942,34 @@ const AdminDashboard = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3 }}
-                  className="bg-white rounded-xl shadow-lg p-6"
+                  className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6"
                 >
                   <div className="flex items-center space-x-3 mb-4">
                     <AlertTriangle className="w-6 h-6 text-red-500" />
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                       AI Alerts
                     </h3>
                   </div>
                   <div className="space-y-4">
                     {aiInsights.alerts.map((alert, index) => (
                       <div key={index} className={`p-4 rounded-lg border-l-4 ${
-                        alert.severity === 'high' ? 'bg-red-50 border-red-500' :
-                        alert.severity === 'medium' ? 'bg-yellow-50 border-yellow-500' :
-                        'bg-green-50 border-green-500'
+                        alert.severity === 'high' ? 'bg-red-50 dark:bg-red-900/20 border-red-500' :
+                        alert.severity === 'medium' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500' :
+                        'bg-green-50 dark:bg-green-900/20 border-green-500'
                       }`}>
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                               {alert.message}
                             </p>
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                               {alert.action}
                             </p>
                           </div>
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            alert.severity === 'high' ? 'bg-red-100 text-red-800' :
-                            alert.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
+                            alert.severity === 'high' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200' :
+                            alert.severity === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200' :
+                            'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
                           }`}>
                             {alert.severity}
                           </span>
@@ -1021,137 +983,71 @@ const AdminDashboard = () => {
           )}
         </AnimatePresence>
 
-          {/* Create Admin Modal */}
-          {showCreateAdminModal && (
+        {/* Create Admin Modal */}
+        {showCreateAdminModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-xl p-6 w-full max-w-md"
+              className="bg-white dark:bg-slate-800 rounded-xl p-6 w-full max-w-md"
             >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
                 Create New Admin
               </h3>
               <form onSubmit={createAdmin} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Username
-                  </label>
-                      <input
-                        type="text"
-                        value={newAdmin.username}
-                        onChange={(e) => setNewAdmin({ ...newAdmin, username: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
-                      <input
-                        type="email"
-                        value={newAdmin.email}
-                        onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password
-                  </label>
-                      <input
-                        type="password"
-                        value={newAdmin.password}
-                        onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-                <div className="flex space-x-3 pt-4">
-                  <Button
-                        type="button"
-                    variant="secondary"
-                        onClick={() => setShowCreateAdminModal(false)}
-                    className="flex-1"
-                      >
-                        Cancel
-                  </Button>
-                  <Button type="submit" className="flex-1">
-                        Create Admin
-                  </Button>
-                    </div>
-                  </form>
-            </motion.div>
-                </div>
-          )}
-
-          {/* Create Authority Modal */}
-          {showCreateAuthorityModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-white rounded-xl p-6 w-full max-w-md"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Create New Authority
-              </h3>
-              <form onSubmit={createAuthority} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Username
                   </label>
                   <input
                     type="text"
-                    value={newAuthority.username}
-                    onChange={(e) => setNewAuthority({ ...newAuthority, username: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={newAdmin.username}
+                    onChange={(e) => setNewAdmin({ ...newAdmin, username: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     required
                   />
-              </div>
+                </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Email
                   </label>
                   <input
                     type="email"
-                    value={newAuthority.email}
-                    onChange={(e) => setNewAuthority({ ...newAuthority, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={newAdmin.email}
+                    onChange={(e) => setNewAdmin({ ...newAdmin, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     required
                   />
-            </div>
+                </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Password
                   </label>
                   <input
                     type="password"
-                    value={newAuthority.password}
-                    onChange={(e) => setNewAuthority({ ...newAuthority, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={newAdmin.password}
+                    onChange={(e) => setNewAdmin({ ...newAdmin, password: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100"
                     required
                   />
-        </div>
+                </div>
                 <div className="flex space-x-3 pt-4">
                   <Button
-                        type="button"
+                    type="button"
                     variant="secondary"
-                        onClick={() => setShowCreateAuthorityModal(false)}
+                    onClick={() => setShowCreateAdminModal(false)}
                     className="flex-1"
-                      >
-                        Cancel
+                  >
+                    Cancel
                   </Button>
                   <Button type="submit" className="flex-1">
-                        Create Authority
+                    Create Admin
                   </Button>
                 </div>
               </form>
             </motion.div>
-            </div>
-          )}
+          </div>
+        )}
       </div>
     </div>
   );

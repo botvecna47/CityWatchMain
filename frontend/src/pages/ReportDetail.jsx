@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API_ENDPOINTS } from '../config/api';
+import Button from '../components/ui/Button';
+import { ArrowLeft } from 'lucide-react';
 
 const ReportDetail = () => {
   const { id } = useParams();
@@ -370,6 +372,7 @@ const ReportDetail = () => {
   const canAddAuthorityUpdate = user && (user.role === 'authority' || user.role === 'admin');
   const canDelete = user && user.role === 'admin';
   const canClose = user && user.role === 'citizen' && report && report.authorId === user.id && report.status === 'RESOLVED';
+  const canComment = user && (user.role === 'citizen' || user.role === 'authority' || user.role === 'admin');
 
   if (loading) {
     return (
@@ -388,12 +391,13 @@ const ReportDetail = () => {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Report Not Found</h1>
           <p className="text-gray-600 mb-4">{error}</p>
-          <button
+          <Button
             onClick={() => navigate('/dashboard')}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+            leftIcon={<ArrowLeft className="w-4 h-4" />}
+            variant="primary"
           >
             Back to Dashboard
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -599,13 +603,13 @@ const ReportDetail = () => {
                         </div>
                       )}
                     </div>
-                    <button
+                    <Button
                       type="submit"
-                      disabled={!authorityUpdate.text.trim() || updating}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      loading={updating}
+                      disabled={!authorityUpdate.text.trim()}
                     >
                       {updating ? 'Adding Update...' : 'Add Update'}
-                    </button>
+                    </Button>
                   </form>
                 </div>
               )}
@@ -651,22 +655,33 @@ const ReportDetail = () => {
                       <div key={attachment.id} className="border border-gray-200 rounded-lg p-4">
                         {attachment.mimetype.startsWith('image/') ? (
                           <div>
-                            <img
-                              src={attachment.url}
-                              alt={attachment.filename}
-                              className="w-full h-32 object-cover rounded-md mb-2"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'block';
-                              }}
-                            />
-                            <div className="w-full h-32 bg-gray-100 rounded-md mb-2 flex items-center justify-center" style={{display: 'none'}}>
-                              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
+                            <div className="relative">
+                              <img
+                                src={attachment.url}
+                                alt={attachment.filename}
+                                className="w-full h-32 object-cover rounded-md mb-2"
+                                onError={(e) => {
+                                  console.error('Image failed to load:', attachment.url);
+                                  e.target.style.display = 'none';
+                                  const fallback = e.target.nextElementSibling;
+                                  if (fallback) fallback.style.display = 'block';
+                                }}
+                                onLoad={() => {
+                                  console.log('Image loaded successfully:', attachment.url);
+                                }}
+                              />
+                              <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded-md mb-2 flex items-center justify-center" style={{display: 'none'}}>
+                                <div className="text-center">
+                                  <svg className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                  </svg>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">Image failed to load</p>
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-sm font-medium text-gray-900 truncate">{attachment.filename}</p>
-                            <p className="text-xs text-gray-500">{Math.round(attachment.size / 1024)} KB</p>
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{attachment.filename}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{Math.round(attachment.size / 1024)} KB</p>
+                            <p className="text-xs text-blue-500 dark:text-blue-400 mt-1">URL: {attachment.url}</p>
                           </div>
                         ) : (
                           <div>
@@ -698,25 +713,28 @@ const ReportDetail = () => {
                 </h2>
                 
                 {/* Add Comment Form */}
-                <form onSubmit={handleAddComment} className="mb-6">
-                  <div className="flex space-x-2">
-                    <textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      rows={2}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Add a comment..."
-                      required
-                    />
-                    <button
-                      type="submit"
-                      disabled={!newComment.trim() || addingComment}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {addingComment ? 'Adding...' : 'Add Comment'}
-                    </button>
-                  </div>
-                </form>
+                {canComment && (
+                  <form onSubmit={handleAddComment} className="mb-6">
+                    <div className="flex space-x-2">
+                      <textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        rows={2}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Add a comment..."
+                        required
+                      />
+                      <Button
+                        type="submit"
+                        loading={addingComment}
+                        disabled={!newComment.trim()}
+                        size="sm"
+                      >
+                        {addingComment ? 'Adding...' : 'Add Comment'}
+                      </Button>
+                    </div>
+                  </form>
+                )}
 
                 {/* Comments List */}
                 {report.comments && report.comments.length > 0 ? (
@@ -750,7 +768,7 @@ const ReportDetail = () => {
                               </p>
                             </div>
                           </div>
-                          {user && user.role === 'admin' && (
+                          {canDelete && (
                             <button
                               onClick={() => handleDeleteComment(comment.id)}
                               className="text-red-600 hover:text-red-800 text-xs"

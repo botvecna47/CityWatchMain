@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
+import { Shield, AlertCircle, CheckCircle, ArrowLeft } from 'lucide-react';
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -29,13 +33,19 @@ const Signup = () => {
   useEffect(() => {
     const fetchCities = async () => {
       try {
+        setCitiesLoading(true);
         const response = await fetch('http://localhost:5000/api/cities');
         if (response.ok) {
           const data = await response.json();
-          setCities(data.cities);
+          setCities(data.cities || []);
+          console.log('🏙️ Fetched cities:', data.cities?.length || 0);
+        } else {
+          console.error('Failed to fetch cities:', response.status);
+          setError('Failed to load cities. Please refresh the page.');
         }
       } catch (error) {
         console.error('Error fetching cities:', error);
+        setError('Failed to load cities. Please check your connection.');
       } finally {
         setCitiesLoading(false);
       }
@@ -58,47 +68,117 @@ const Signup = () => {
     setLoading(true);
     setError('');
 
-    // Validation
+    // Enhanced validation
+    if (!formData.firstName.trim()) {
+      setError('First name is required');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.lastName.trim()) {
+      setError('Last name is required');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.username.trim()) {
+      setError('Username is required');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.username.length < 3) {
+      setError('Username must be at least 3 characters long');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      setError('Email is required');
+      setLoading(false);
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.mobile.trim()) {
+      setError('Mobile number is required');
+      setLoading(false);
+      return;
+    }
+
+    const mobileRegex = /^[6-9]\d{9}$/;
+    if (!mobileRegex.test(formData.mobile)) {
+      setError('Please enter a valid 10-digit mobile number');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.dob) {
+      setError('Date of birth is required');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.cityId) {
+      setError('Please select your city');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.password) {
+      setError('Password is required');
+      setLoading(false);
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      setLoading(false);
+      return;
+    }
+
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+    if (!passwordRegex.test(formData.password)) {
+      setError('Password must contain at least one letter, one number, and one special character');
+      setLoading(false);
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
       return;
     }
 
-    if (!formData.cityId) {
-      setError('Please select a city');
-      setLoading(false);
-      return;
-    }
-
-    if (!formData.firstName || !formData.lastName) {
-      setError('First name and last name are required');
-      setLoading(false);
-      return;
-    }
-
     if (!formData.agreedTos) {
-      setError('You must agree to the Terms and Conditions');
+      setError('You must agree to the Terms of Service');
       setLoading(false);
       return;
     }
 
     try {
+      console.log('📝 Submitting signup form...');
       const response = await fetch('http://localhost:5000/api/auth/signup', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
+          username: formData.username.trim(),
+          email: formData.email.trim(),
           password: formData.password,
           cityId: formData.cityId,
-          firstName: formData.firstName,
-          middleName: formData.middleName,
-          lastName: formData.lastName,
+          firstName: formData.firstName.trim(),
+          middleName: formData.middleName?.trim() || '',
+          lastName: formData.lastName.trim(),
           dob: formData.dob,
-          mobile: formData.mobile,
+          mobile: formData.mobile.trim(),
           agreedTos: formData.agreedTos
         }),
       });
@@ -109,12 +189,17 @@ const Signup = () => {
         throw new Error(data.error || 'Signup failed');
       }
 
+      console.log('✅ Signup successful:', data);
+
       // If signup successful but requires verification
       if (data.requiresVerification) {
         setOtpData({ 
           email: formData.email, 
           firstName: formData.firstName, 
-          lastName: formData.lastName 
+          lastName: formData.lastName,
+          emailSent: data.emailSent,
+          developmentMode: data.developmentMode,
+          otpCode: data.otpCode // Include OTP if email failed or in development mode
         });
         setShowOTPVerification(true);
         setLoading(false);
@@ -129,6 +214,7 @@ const Signup = () => {
 
       navigate('/dashboard');
     } catch (err) {
+      console.error('❌ Signup error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -136,19 +222,31 @@ const Signup = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your CityWatch account
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-primary-50/30 flex items-center justify-center p-4">
+      <motion.div 
+        className="max-w-md w-full"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <motion.div 
+          className="text-center mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <Shield className="w-8 h-8 text-white" />
+            </div>
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Join CityWatch
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Or{' '}
-            <a href="/login" className="font-medium text-blue-600 hover:text-blue-500">
-              sign in to your existing account
-            </a>
+          <p className="text-gray-600">
+            Create your account to start making a difference
           </p>
-        </div>
+        </motion.div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
@@ -346,16 +444,18 @@ const Signup = () => {
           </div>
 
           <div>
-            <button
+            <Button
               type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              loading={loading}
+              fullWidth
+              size="lg"
+              className="w-full"
             >
               {loading ? 'Creating Account...' : 'Create Account'}
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </motion.div>
 
       {/* OTP Verification Modal */}
       {showOTPVerification && (
@@ -375,8 +475,8 @@ const Signup = () => {
 };
 
 // OTP Verification Component
-const OTPVerification = ({ email, firstName, lastName, onSuccess, onClose }) => {
-  const [otpCode, setOtpCode] = useState('');
+const OTPVerification = ({ email, firstName, lastName, emailSent, developmentMode, otpCode: providedOtpCode, onSuccess, onClose }) => {
+  const [otpCode, setOtpCode] = useState(providedOtpCode || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resendLoading, setResendLoading] = useState(false);
@@ -467,9 +567,35 @@ const OTPVerification = ({ email, firstName, lastName, onSuccess, onClose }) => 
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Verify Your Email
           </h3>
-          <p className="text-sm text-gray-600 mb-4">
-            We've sent a 6-digit verification code to <strong>{email}</strong>
-          </p>
+          {emailSent && !developmentMode ? (
+            <p className="text-sm text-gray-600 mb-4">
+              We've sent a 6-digit verification code to <strong>{email}</strong>
+            </p>
+          ) : developmentMode ? (
+            <div className="mb-4">
+              <p className="text-sm text-blue-600 mb-2">
+                🔧 Development Mode: Email service not configured
+              </p>
+              <p className="text-sm text-gray-600 mb-2">
+                Your verification code is: <strong className="text-lg text-blue-600">{providedOtpCode}</strong>
+              </p>
+              <p className="text-xs text-gray-500">
+                Check the server console for email details. Configure Gmail in .env file for production.
+              </p>
+            </div>
+          ) : (
+            <div className="mb-4">
+              <p className="text-sm text-yellow-600 mb-2">
+                ⚠️ Email sending failed, but your account was created successfully.
+              </p>
+              <p className="text-sm text-gray-600 mb-2">
+                Your verification code is: <strong className="text-lg text-blue-600">{providedOtpCode}</strong>
+              </p>
+              <p className="text-xs text-gray-500">
+                You can also try resending the email below.
+              </p>
+            </div>
+          )}
         </div>
 
         {error && (

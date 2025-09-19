@@ -1,13 +1,59 @@
+require('dotenv').config();
 const nodemailer = require('nodemailer');
 
-// Create transporter for Gmail SMTP
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD, // Use App Password for Gmail
-  },
-});
+// Create transporter with multiple service options
+const createTransporter = () => {
+  // Check for Gmail configuration first
+  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+    console.log('📧 Using Gmail SMTP service');
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+  }
+  
+  // Check for SendGrid configuration
+  if (process.env.SENDGRID_API_KEY) {
+    console.log('📧 Using SendGrid service');
+    return nodemailer.createTransport({
+      service: 'SendGrid',
+      auth: {
+        user: 'apikey',
+        pass: process.env.SENDGRID_API_KEY,
+      },
+    });
+  }
+  
+  // Check for Mailgun configuration
+  if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) {
+    console.log('📧 Using Mailgun service');
+    return nodemailer.createTransport({
+      host: 'smtp.mailgun.org',
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.MAILGUN_API_KEY,
+        pass: process.env.MAILGUN_DOMAIN,
+      },
+    });
+  }
+  
+  // Fallback to console logging (development mode)
+  console.log('⚠️ No email service configured, using console fallback');
+  return null;
+};
+
+// Create transporter lazily to ensure environment variables are loaded
+let transporter = null;
+const getTransporter = () => {
+  if (!transporter) {
+    transporter = createTransporter();
+  }
+  return transporter;
+};
 
 // Generate 6-digit OTP
 const generateOTP = () => {
@@ -16,6 +62,7 @@ const generateOTP = () => {
 
 // Send OTP email
 const sendOTPEmail = async (email, firstName, otpCode) => {
+  const transporter = getTransporter();
   const mailOptions = {
     from: process.env.GMAIL_USER,
     to: email,
@@ -61,6 +108,15 @@ const sendOTPEmail = async (email, firstName, otpCode) => {
   };
 
   try {
+    // If no email service is configured, log to console for development
+    if (!transporter) {
+      console.log(`📧 [DEVELOPMENT MODE] OTP email would be sent to ${email}`);
+      console.log(`📧 [DEVELOPMENT MODE] Subject: ${mailOptions.subject}`);
+      console.log(`📧 [DEVELOPMENT MODE] OTP Code: ${otpCode}`);
+      console.log(`📧 [DEVELOPMENT MODE] To configure email service, set GMAIL_USER and GMAIL_APP_PASSWORD in your .env file`);
+      return { success: true, developmentMode: true };
+    }
+    
     await transporter.sendMail(mailOptions);
     console.log(`✅ OTP email sent successfully to ${email}`);
     return { success: true };
@@ -72,6 +128,7 @@ const sendOTPEmail = async (email, firstName, otpCode) => {
 
 // Send resend OTP email
 const sendResendOTPEmail = async (email, firstName, otpCode) => {
+  const transporter = getTransporter();
   const mailOptions = {
     from: process.env.GMAIL_USER,
     to: email,
@@ -117,6 +174,15 @@ const sendResendOTPEmail = async (email, firstName, otpCode) => {
   };
 
   try {
+    // If no email service is configured, log to console for development
+    if (!transporter) {
+      console.log(`📧 [DEVELOPMENT MODE] Resend OTP email would be sent to ${email}`);
+      console.log(`📧 [DEVELOPMENT MODE] Subject: ${mailOptions.subject}`);
+      console.log(`📧 [DEVELOPMENT MODE] OTP Code: ${otpCode}`);
+      console.log(`📧 [DEVELOPMENT MODE] To configure email service, set GMAIL_USER and GMAIL_APP_PASSWORD in your .env file`);
+      return { success: true, developmentMode: true };
+    }
+    
     await transporter.sendMail(mailOptions);
     console.log(`✅ Resend OTP email sent successfully to ${email}`);
     return { success: true };

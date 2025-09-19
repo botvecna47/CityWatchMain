@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LocationPicker from '../components/LocationPicker';
+import Button from '../components/ui/Button';
+import { MapPin, Map, X, Upload } from 'lucide-react';
 
 const CreateReport = () => {
   const navigate = useNavigate();
@@ -312,30 +314,16 @@ const CreateReport = () => {
                 {/* Current Location Option */}
                 {locationMethod === 'current' && (
                   <div className="mb-4">
-                    <button
+                    <Button
                       type="button"
                       onClick={getCurrentLocation}
-                      disabled={locationLoading}
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                      loading={locationLoading}
+                      leftIcon={<MapPin className="w-4 h-4" />}
+                      size="sm"
+                      variant="secondary"
                     >
-                      {locationLoading ? (
-                        <>
-                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Getting Location...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          Get Current Location
-                        </>
-                      )}
-                    </button>
+                      {locationLoading ? 'Getting Location...' : 'Get Current Location'}
+                    </Button>
                     <p className="mt-1 text-sm text-gray-500">
                       Use your device's GPS to automatically set the location
                     </p>
@@ -345,16 +333,15 @@ const CreateReport = () => {
                 {/* Manual Location Option */}
                 {locationMethod === 'manual' && (
                   <div className="mb-4">
-                    <button
+                    <Button
                       type="button"
                       onClick={() => setShowMap(!showMap)}
-                      className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      leftIcon={<Map className="w-4 h-4" />}
+                      size="sm"
+                      variant="secondary"
                     >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-                      </svg>
                       {showMap ? 'Hide Map' : 'Show Map'}
-                    </button>
+                    </Button>
                     <p className="mt-1 text-sm text-gray-500">
                       Click on the map to select a location
                     </p>
@@ -458,13 +445,16 @@ const CreateReport = () => {
                               ({Math.round(file.size / 1024)} KB)
                             </span>
                           </div>
-                          <button
+                          <Button
                             type="button"
                             onClick={() => removeFile(index)}
-                            className="text-red-600 hover:text-red-800 text-sm"
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<X className="w-3 h-3" />}
+                            className="text-error-600 hover:text-error-800"
                           >
                             Remove
-                          </button>
+                          </Button>
                         </div>
                       ))}
                     </div>
@@ -474,20 +464,23 @@ const CreateReport = () => {
 
 
               <div className="flex space-x-4">
-                <button
+                <Button
                   type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  loading={loading}
+                  fullWidth
+                  className="flex-1"
                 >
                   {loading ? 'Creating Report...' : 'Create Report'}
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => navigate('/dashboard')}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  variant="secondary"
+                  fullWidth
+                  className="flex-1"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           </div>

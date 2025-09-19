@@ -140,7 +140,20 @@ const signup = async (req, res) => {
     const otpCode = generateOTP();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
 
-    // Create user (unverified initially)
+    // Send OTP email first
+    const fullName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim();
+    const emailResult = await sendOTPEmail(email, fullName, otpCode);
+    
+    if (!emailResult.success) {
+      // If email fails, don't create the user at all
+      console.error('Failed to send OTP email:', emailResult.error);
+      return res.status(400).json({
+        error: 'Failed to send verification email. Please check your email address and try again.',
+        details: emailResult.error
+      });
+    }
+
+    // Only create user after successful email sending
     const user = await prisma.user.create({
       data: {
         username,
@@ -166,7 +179,7 @@ const signup = async (req, res) => {
         middleName: true,
         lastName: true,
         mobile: true,
-        isVerified: true,
+        isVerified: false,
         role: true,
         cityId: true,
         city: {
@@ -181,20 +194,10 @@ const signup = async (req, res) => {
       }
     });
 
-    // Send OTP email
-    const fullName = `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim();
-    const emailResult = await sendOTPEmail(email, fullName, otpCode);
-    
-    if (!emailResult.success) {
-      // If email fails, delete the user and return error
-      await prisma.user.delete({ where: { id: user.id } });
-      return res.status(500).json({
-        error: 'Failed to send verification email. Please try again.'
-      });
-    }
-
     res.status(201).json({
-      message: 'User created successfully. Please check your email for verification code.',
+      message: emailResult.developmentMode 
+        ? 'User created successfully. Check console for verification code (development mode).'
+        : 'User created successfully. Please check your email for verification code.',
       user: {
         id: user.id,
         username: user.username,
@@ -204,7 +207,10 @@ const signup = async (req, res) => {
         lastName: user.lastName,
         isVerified: user.isVerified
       },
-      requiresVerification: true
+      requiresVerification: true,
+      emailSent: true,
+      developmentMode: emailResult.developmentMode || false,
+      otpCode: emailResult.developmentMode ? otpCode : undefined
     });
 
   } catch (error) {

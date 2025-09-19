@@ -6,13 +6,12 @@ const {
   getUsers,
   updateUserRole,
   toggleUserBan,
-  createUser,
+  createAdmin,
   getReports,
   deleteReport,
   restoreReport,
   getAuditLogs,
-  getDashboardStats,
-  getAIInsights
+  getDashboardStats
 } = require('../controllers/adminController');
 
 // All admin routes require authentication and admin role
@@ -22,14 +21,14 @@ router.use(requireAdmin);
 // Dashboard stats
 router.get('/dashboard/stats', getDashboardStats);
 
-// AI insights
-router.get('/ai-insights', getAIInsights);
+// AI insights - temporarily removed
+// router.get('/ai-insights', getAIInsights);
 
 // User management
 router.get('/users', getUsers);
 router.patch('/users/:id/role', updateUserRole);
 router.patch('/users/:id/ban', toggleUserBan);
-router.post('/users', createUser);
+router.post('/users', createAdmin);
 
 // Report management
 router.get('/reports', getReports);

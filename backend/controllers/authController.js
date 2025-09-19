@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../services/database');
 const { generateOTP, sendOTPEmail } = require('../utils/mailer');
+const { blacklistToken } = require('../middleware/tokenBlacklist');
 
 // Generate JWT tokens
 const generateTokens = (userId) => {
@@ -505,6 +506,9 @@ const refreshToken = async (req, res) => {
       });
     }
 
+    // Blacklist the old refresh token
+    blacklistToken(refreshToken);
+
     // Generate new tokens
     const { accessToken, refreshToken: newRefreshToken } = generateTokens(
       user.id
@@ -526,6 +530,27 @@ const refreshToken = async (req, res) => {
     }
 
     console.error('Refresh token error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
+// Logout
+const logout = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      blacklistToken(token);
+    }
+
+    res.json({
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
     res.status(500).json({
       error: 'Internal server error'
     });
@@ -737,6 +762,7 @@ module.exports = {
   sendVerificationEmail,
   completeSignup,
   login,
+  logout,
   refreshToken,
   getMe,
   verifyOTP,

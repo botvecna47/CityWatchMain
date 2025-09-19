@@ -33,8 +33,11 @@ const AuthorityDashboard = () => {
   const [stats, setStats] = useState({
     totalReports: 0,
     openReports: 0,
+    inProgressReports: 0,
     resolvedReports: 0,
-    activeEvents: 0
+    totalEvents: 0,
+    totalAlerts: 0,
+    activeAlerts: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -50,46 +53,52 @@ const AuthorityDashboard = () => {
       setLoading(true);
       console.log('📊 Fetching authority dashboard data for user:', user.username);
 
-      // Fetch reports
-      let fetchedReports = [];
+      // Fetch real dashboard stats from analytics API
+      const statsResponse = await makeAuthenticatedRequest(API_ENDPOINTS.ANALYTICS_AUTHORITY_DASHBOARD);
+      
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        console.log('📊 Fetched authority stats:', statsData.data);
+        setStats(statsData.data);
+      } else {
+        throw new Error('Failed to fetch dashboard stats');
+      }
+
+      // Fetch recent reports for display
       try {
         const reportsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.REPORTS}?limit=10`);
         if (reportsResponse.ok) {
           const reportsData = await reportsResponse.json();
           console.log('📋 Fetched reports:', reportsData.reports?.length || 0);
-          fetchedReports = reportsData.reports || [];
-          setReports(fetchedReports);
+          setReports(reportsData.reports || []);
         }
       } catch (error) {
         console.error('Error fetching reports:', error);
       }
 
-      // Fetch events
-      let fetchedEvents = [];
+      // Fetch recent events for display
       try {
         const eventsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.EVENTS}?limit=5`);
         if (eventsResponse.ok) {
           const eventsData = await eventsResponse.json();
           console.log('📅 Fetched events:', eventsData.events?.length || 0);
-          fetchedEvents = eventsData.events || [];
-          setEvents(fetchedEvents);
+          setEvents(eventsData.events || []);
         }
       } catch (error) {
         console.error('Error fetching events:', error);
       }
 
-      // Calculate stats using the fetched data
-      const totalReports = fetchedReports.length;
-      const openReports = fetchedReports.filter(r => r.status === 'OPEN').length;
-      const resolvedReports = fetchedReports.filter(r => r.status === 'RESOLVED').length;
-      const activeEvents = fetchedEvents.length;
-
-      setStats({
-        totalReports,
-        openReports,
-        resolvedReports,
-        activeEvents
-      });
+      // Fetch recent alerts for display
+      try {
+        const alertsResponse = await makeAuthenticatedRequest(`${API_ENDPOINTS.ALERTS}?limit=5`);
+        if (alertsResponse.ok) {
+          const alertsData = await alertsResponse.json();
+          console.log('🚨 Fetched alerts:', alertsData.alerts?.length || 0);
+          setAlerts(alertsData.alerts || []);
+        }
+      } catch (error) {
+        console.error('Error fetching alerts:', error);
+      }
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -182,6 +191,18 @@ const AuthorityDashboard = () => {
 
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
             <div className="flex items-center">
+              <div className="p-2 bg-blue-100 rounded-xl">
+                <TrendingUp className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">In Progress</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.inProgressReports}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
               <div className="p-2 bg-success-100 rounded-xl">
                 <CheckCircle className="w-6 h-6 text-success-600" />
               </div>
@@ -191,15 +212,42 @@ const AuthorityDashboard = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Additional Stats Row */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-2 bg-green-100 rounded-xl">
+                <Calendar className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Events</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalEvents}</p>
+              </div>
+            </div>
+          </div>
 
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-xl">
-                <Calendar className="w-6 h-6 text-blue-600" />
+              <div className="p-2 bg-red-100 rounded-xl">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Active Events</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.activeEvents}</p>
+                <p className="text-sm font-medium text-gray-600">Total Alerts</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalAlerts}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-2 bg-orange-100 rounded-xl">
+                <AlertTriangle className="w-6 h-6 text-orange-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Active Alerts</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeAlerts}</p>
               </div>
             </div>
           </div>

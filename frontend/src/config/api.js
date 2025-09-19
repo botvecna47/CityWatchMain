@@ -13,6 +13,7 @@ export const API_ENDPOINTS = {
   // Reports endpoints
   REPORTS: `${API_BASE_URL}/api/reports`,
   REPORTS_NEARBY: `${API_BASE_URL}/api/reports/nearby`,
+  REPORTS_CHECK_DUPLICATE: `${API_BASE_URL}/api/reports/check-duplicate`,
   REPORTS_CREATE: `${API_BASE_URL}/api/reports`,
   REPORTS_BY_ID: (id) => `${API_BASE_URL}/api/reports/${id}`,
   REPORTS_TIMELINE: (id) => `${API_BASE_URL}/api/reports/${id}/timeline`,
@@ -70,6 +71,14 @@ export const API_ENDPOINTS = {
   AI_SUGGESTIONS: `${API_BASE_URL}/api/ai/suggestions`,
   AI_HELP: `${API_BASE_URL}/api/ai/help`,
   AI_STATUS: `${API_BASE_URL}/api/ai/status`,
+
+  // Analytics endpoints
+  ANALYTICS_DASHBOARD: `${API_BASE_URL}/api/analytics/dashboard`,
+  ANALYTICS_USERS: `${API_BASE_URL}/api/analytics/users`,
+  ANALYTICS_REPORTS: `${API_BASE_URL}/api/analytics/reports`,
+  ANALYTICS_EVENTS: `${API_BASE_URL}/api/analytics/events`,
+  ANALYTICS_ALERTS: `${API_BASE_URL}/api/analytics/alerts`,
+  ANALYTICS_AUTHORITY_DASHBOARD: `${API_BASE_URL}/api/analytics/authority/dashboard`,
 };
 
 export default API_BASE_URL;

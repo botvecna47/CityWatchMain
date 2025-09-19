@@ -6,7 +6,7 @@ const sanitizeHtml = (html) => {
   return html.replace(/<[^>]*>/g, '');
 };
 
-// Sanitize text content (remove HTML tags and dangerous characters)
+// Enhanced sanitize text content (remove HTML tags and dangerous characters)
 const sanitizeText = (text) => {
   if (typeof text !== 'string') {
     return text;
@@ -15,7 +15,30 @@ const sanitizeText = (text) => {
     .replace(/<[^>]*>/g, '') // Remove HTML tags
     .replace(/[<>'"&]/g, '') // Remove dangerous characters
     .replace(/javascript:/gi, '') // Remove javascript: protocol
+    .replace(/vbscript:/gi, '') // Remove vbscript: protocol
+    .replace(/data:/gi, '') // Remove data: protocol
     .replace(/on\w+\s*=/gi, '') // Remove event handlers
+    .replace(/expression\s*\(/gi, '') // Remove CSS expressions
+    .replace(/url\s*\(/gi, '') // Remove CSS url() functions
+    .replace(/@import/gi, '') // Remove CSS imports
+    .replace(/eval\s*\(/gi, '') // Remove eval() calls
+    .replace(/setTimeout\s*\(/gi, '') // Remove setTimeout calls
+    .replace(/setInterval\s*\(/gi, '') // Remove setInterval calls
+    .replace(/Function\s*\(/gi, '') // Remove Function constructor
+    .replace(/document\./gi, '') // Remove document object access
+    .replace(/window\./gi, '') // Remove window object access
+    .replace(/\.innerHTML/gi, '') // Remove innerHTML access
+    .replace(/\.outerHTML/gi, '') // Remove outerHTML access
+    .replace(/\.insertAdjacentHTML/gi, '') // Remove insertAdjacentHTML
+    .replace(/\.write/gi, '') // Remove document.write
+    .replace(/\.writeln/gi, '') // Remove document.writeln
+    .replace(/\\x[0-9a-fA-F]{2}/g, '') // Remove hex encoded characters
+    .replace(/\\u[0-9a-fA-F]{4}/g, '') // Remove unicode encoded characters
+    .replace(/\\[0-7]{1,3}/g, '') // Remove octal encoded characters
+    .replace(/%[0-9a-fA-F]{2}/g, '') // Remove URL encoded characters
+    .replace(/&#x[0-9a-fA-F]+;/g, '') // Remove hex HTML entities
+    .replace(/&#[0-9]+;/g, '') // Remove decimal HTML entities
+    .replace(/&[a-zA-Z][a-zA-Z0-9]*;/g, '') // Remove named HTML entities
     .trim();
 };
 

@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import LocationPicker from '../components/LocationPicker';
+import DuplicateReportModal from '../components/DuplicateReportModal';
 import Button from '../components/ui/Button';
+import { API_ENDPOINTS } from '../config/api';
 import { MapPin, Map, X, Upload } from 'lucide-react';
 
 const CreateReport = () => {
   const navigate = useNavigate();
   const { user, makeAuthenticatedRequest } = useAuth();
+  const { success: showSuccess, error: showError } = useToast();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -21,6 +25,11 @@ const CreateReport = () => {
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationMethod, setLocationMethod] = useState('current'); // 'current' or 'manual'
   const [showMap, setShowMap] = useState(false);
+  
+  // Duplicate detection state
+  const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [duplicateMatches, setDuplicateMatches] = useState([]);
+  const [submittingAnyway, setSubmittingAnyway] = useState(false);
 
   const categories = [
     'GARBAGE',
@@ -154,18 +163,68 @@ const CreateReport = () => {
     }
 
     try {
-      // First, create the report
-      const reportResponse = await makeAuthenticatedRequest('http://localhost:5000/api/reports', {
+      // First, check for duplicates (unless submitting anyway)
+      if (!submittingAnyway) {
+        console.log('🔍 Checking for duplicates...', {
+          title: formData.title.trim(),
+          description: formData.description.trim(),
+          latitude: parseFloat(formData.latitude),
+          longitude: parseFloat(formData.longitude)
+        });
+
+        const duplicateResponse = await makeAuthenticatedRequest(API_ENDPOINTS.REPORTS_CHECK_DUPLICATE, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title: formData.title.trim(),
+            description: formData.description.trim(),
+            latitude: parseFloat(formData.latitude),
+            longitude: parseFloat(formData.longitude)
+          }),
+        });
+
+        console.log('📡 Duplicate check response status:', duplicateResponse.status);
+        const duplicateData = await duplicateResponse.json();
+        console.log('📋 Duplicate check response data:', duplicateData);
+
+        if (duplicateResponse.ok && duplicateData.duplicate && duplicateData.matches.length > 0) {
+          console.log('🚨 Duplicate detected! Showing modal...');
+          // Show duplicate modal
+          setDuplicateMatches(duplicateData.matches);
+          setDuplicateModalOpen(true);
+          setLoading(false);
+          return;
+        } else {
+          console.log('✅ No duplicates found, proceeding with report creation...');
+        }
+      }
+
+      // Create the report (with force=true if submitting anyway)
+      const reportPayload = { ...formData };
+      if (submittingAnyway) {
+        reportPayload.force = true;
+      }
+
+      const reportResponse = await makeAuthenticatedRequest(API_ENDPOINTS.REPORTS, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(reportPayload),
       });
 
       const reportData = await reportResponse.json();
 
       if (!reportResponse.ok) {
+        // Handle duplicate detection from server
+        if (reportResponse.status === 409 && reportData.duplicate) {
+          setDuplicateMatches(reportData.matches);
+          setDuplicateModalOpen(true);
+          setLoading(false);
+          return;
+        }
         throw new Error(reportData.error || 'Failed to create report');
       }
 
@@ -188,13 +247,32 @@ const CreateReport = () => {
         }
       }
 
-      // Redirect to dashboard
+      // Show success message and redirect
+      showSuccess('Report created successfully!');
       navigate('/dashboard');
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Duplicate modal handlers
+  const handleViewReport = (reportId) => {
+    navigate(`/reports/${reportId}`);
+  };
+
+  const handleSubmitAnyway = () => {
+    setSubmittingAnyway(true);
+    setDuplicateModalOpen(false);
+    // Trigger form submission again
+    handleSubmit({ preventDefault: () => {} });
+  };
+
+  const handleCloseDuplicateModal = () => {
+    setDuplicateModalOpen(false);
+    setDuplicateMatches([]);
+    setSubmittingAnyway(false);
   };
 
   // Redirect if not a citizen
@@ -204,7 +282,8 @@ const CreateReport = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           <div className="mb-8">
@@ -487,6 +566,16 @@ const CreateReport = () => {
         </div>
       </div>
     </div>
+
+      {/* Duplicate Detection Modal */}
+      <DuplicateReportModal
+        isOpen={duplicateModalOpen}
+        onClose={handleCloseDuplicateModal}
+        matches={duplicateMatches}
+        onViewReport={handleViewReport}
+        onSubmitAnyway={handleSubmitAnyway}
+      />
+    </>
   );
 };
 

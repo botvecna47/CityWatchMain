@@ -111,6 +111,7 @@ model Report {
   authorityUpdates AuthorityUpdate[]
   comments         Comment[]
   attachments      Attachment[]
+  embedding        ReportEmbedding?
 
   // Indexes for performance
   @@index([cityId])
@@ -252,4 +253,14 @@ model Event {
   @@index([dateTime])
   @@index([createdAt])
   @@map("events")
+}
+
+model ReportEmbedding {
+  id        String   @id @default(uuid())
+  reportId  String   @unique
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  embedding Json     // Array of float numbers representing the embedding vector
+  createdAt DateTime @default(now())
+
+  @@map("report_embeddings")
 }

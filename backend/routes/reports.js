@@ -17,6 +17,7 @@ const {
   deleteReport,
   getReportTimeline,
   getNearbyReports,
+  checkDuplicateReport,
 } = require('../controllers/reportsController');
 
 // All routes require authentication
@@ -24,6 +25,9 @@ router.use(authMiddleware);
 
 // POST /api/reports - Create new report (Citizens only - enforced in controller)
 router.post('/', postLimiter, createReport);
+
+// POST /api/reports/check-duplicate - Check for duplicate reports
+router.post('/check-duplicate', postLimiter, checkDuplicateReport);
 
 // GET /api/reports - Get reports list (filtered by user's city)
 router.get('/', heavyGetLimiter, getReports);

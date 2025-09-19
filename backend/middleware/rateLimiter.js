@@ -1,70 +1,133 @@
 const rateLimit = require('express-rate-limit');
 
-// General rate limiter for public routes - DISABLED for development
+// Check if we're in development mode
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+// General rate limiter for public routes
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 999999, // Essentially unlimited for development
+  max: isDevelopment ? 1000 : 100, // 1000 for dev, 100 for production
   message: {
-    error: 'Too many requests from this IP, please try again later.'
+    error: 'Too many requests from this IP, please try again later.',
+    retryAfter: '15 minutes'
   },
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many requests from this IP, please try again later.',
+      retryAfter: Math.round(15 * 60) // seconds
+    });
+  }
 });
 
-// Strict rate limiter for auth routes - DISABLED for development
+// Strict rate limiter for auth routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 999999, // Essentially unlimited for development
+  max: isDevelopment ? 50 : 5, // 5 attempts per 15 minutes in production
   message: {
-    error: 'Too many authentication attempts, please try again later.'
+    error: 'Too many authentication attempts, please try again later.',
+    retryAfter: '15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful requests
+  skipSuccessfulRequests: true,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many authentication attempts, please try again later.',
+      retryAfter: Math.round(15 * 60)
+    });
+  }
 });
 
-// Moderate rate limiter for API routes - DISABLED for development
+// Moderate rate limiter for API routes
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 999999, // Essentially unlimited for development
+  max: isDevelopment ? 500 : 100, // 100 requests per 15 minutes in production
   message: {
-    error: 'Too many API requests, please try again later.'
+    error: 'Too many API requests, please try again later.',
+    retryAfter: '15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many API requests, please try again later.',
+      retryAfter: Math.round(15 * 60)
+    });
+  }
 });
 
-// Heavy GET routes (reports, comments, search) - DISABLED for development
+// Heavy GET routes (reports, comments, search)
 const heavyGetLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 999999, // Essentially unlimited for development
+  max: isDevelopment ? 200 : 30, // 30 requests per minute in production
   message: {
-    error: 'Too many requests for this endpoint, please try again later.'
+    error: 'Too many requests for this endpoint, please try again later.',
+    retryAfter: '1 minute'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many requests for this endpoint, please try again later.',
+      retryAfter: Math.round(1 * 60)
+    });
+  }
 });
 
-// POST routes (create, update, delete) - DISABLED for development
+// POST routes (create, update, delete)
 const postLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 999999, // Essentially unlimited for development
+  max: isDevelopment ? 100 : 10, // 10 requests per minute in production
   message: {
-    error: 'Too many requests for this endpoint, please try again later.'
+    error: 'Too many requests for this endpoint, please try again later.',
+    retryAfter: '1 minute'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many requests for this endpoint, please try again later.',
+      retryAfter: Math.round(1 * 60)
+    });
+  }
 });
 
-// File upload rate limiter - DISABLED for development
+// File upload rate limiter
 const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 999999, // Essentially unlimited for development
+  max: isDevelopment ? 50 : 5, // 5 uploads per 15 minutes in production
   message: {
-    error: 'Too many file uploads, please try again later.'
+    error: 'Too many file uploads, please try again later.',
+    retryAfter: '15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many file uploads, please try again later.',
+      retryAfter: Math.round(15 * 60)
+    });
+  }
+});
+
+// Strict rate limiter for password reset and sensitive operations
+const sensitiveLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: isDevelopment ? 10 : 3, // 3 attempts per hour in production
+  message: {
+    error: 'Too many attempts for this sensitive operation, please try again later.',
+    retryAfter: '1 hour'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many attempts for this sensitive operation, please try again later.',
+      retryAfter: Math.round(60 * 60)
+    });
+  }
 });
 
 module.exports = {
@@ -73,5 +136,6 @@ module.exports = {
   apiLimiter,
   heavyGetLimiter,
   postLimiter,
-  uploadLimiter
+  uploadLimiter,
+  sensitiveLimiter
 };

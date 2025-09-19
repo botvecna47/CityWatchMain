@@ -6,11 +6,12 @@ const {
   notifyAuthorityUpdate,
   notifyReportClosed,
 } = require('../services/notificationService');
+const { checkDuplicate, generateEmbedding, storeEmbedding } = require('../services/duplicateService');
 
 // Create a new report (Citizens only)
 const createReport = async (req, res) => {
   try {
-    const { title, description, category, latitude, longitude } = req.body;
+    const { title, description, category, latitude, longitude, force } = req.body;
     const authorId = req.user.id;
     const cityId = req.user.cityId; // Server enforces cityId from user
 
@@ -89,6 +90,25 @@ const createReport = async (req, res) => {
       });
     }
 
+    // Check for duplicates (unless force=true)
+    if (!force) {
+      const duplicateResult = await checkDuplicate({
+        title: title.trim(),
+        description: description.trim(),
+        latitude: parsedLatitude,
+        longitude: parsedLongitude,
+        cityId
+      });
+
+      if (duplicateResult.duplicate && duplicateResult.matches.length > 0) {
+        return res.status(409).json({
+          error: 'Potential duplicate report detected',
+          duplicate: true,
+          matches: duplicateResult.matches
+        });
+      }
+    }
+
     // Create report
     const report = await prisma.report.create({
       data: {
@@ -137,6 +157,18 @@ const createReport = async (req, res) => {
 
     // Invalidate cache for this city
     cacheService.clear();
+
+    // Store embedding for the new report (async, don't wait)
+    const combinedText = `${title.trim()} ${description.trim()}`;
+    generateEmbedding(combinedText)
+      .then(embedding => {
+        if (embedding) {
+          return storeEmbedding(report.id, embedding);
+        }
+      })
+      .catch(error => {
+        console.error('Error storing embedding for report:', report.id, error);
+      });
 
     res.status(201).json({
       message: 'Report created successfully',
@@ -1201,6 +1233,60 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return distance;
 };
 
+// Check for duplicate reports
+const checkDuplicateReport = async (req, res) => {
+  try {
+    const { title, description, latitude, longitude } = req.body;
+    const cityId = req.user.cityId;
+
+    console.log('🔍 Duplicate check request:', {
+      title,
+      description,
+      latitude,
+      longitude,
+      cityId,
+      userId: req.user.id
+    });
+
+    // Validate required fields
+    if (!title || !description || !latitude || !longitude) {
+      return res.status(400).json({
+        error: 'Title, description, latitude, and longitude are required'
+      });
+    }
+
+    // Ensure user has a city
+    if (!cityId) {
+      return res.status(400).json({
+        error: 'You must be assigned to a city before checking for duplicates'
+      });
+    }
+
+    // Check for duplicates
+    const result = await checkDuplicate({
+      title,
+      description,
+      latitude,
+      longitude,
+      cityId
+    });
+
+    console.log('📋 Duplicate check result:', result);
+
+    res.json({
+      success: true,
+      duplicate: result.duplicate,
+      matches: result.matches
+    });
+
+  } catch (error) {
+    console.error('Error checking for duplicates:', error);
+    res.status(500).json({
+      error: 'Failed to check for duplicates'
+    });
+  }
+};
+
 module.exports = {
   createReport,
   getReports,
@@ -1209,5 +1295,6 @@ module.exports = {
   closeReport,
   deleteReport,
   getReportTimeline,
-  getNearbyReports
+  getNearbyReports,
+  checkDuplicateReport
 };

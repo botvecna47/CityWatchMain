@@ -13,5 +13,6 @@ router.use('/admin', require('./admin'));
 router.use('/alerts', require('./alerts'));
 router.use('/events', require('./events'));
 router.use('/ai', require('./ai'));
+router.use('/analytics', require('./analytics'));
 
 module.exports = router;

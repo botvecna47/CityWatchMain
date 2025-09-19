@@ -5,9 +5,12 @@ const {
   generalLimiter,
   authLimiter,
   apiLimiter,
+  sensitiveLimiter,
 } = require('./middleware/rateLimiter');
 const { sanitizeAll } = require('./middleware/sanitize');
 const { errorHandler } = require('./middleware/errorHandler');
+const { securityHeaders } = require('./middleware/securityHeaders');
+const { checkTokenBlacklist } = require('./middleware/tokenBlacklist');
 
 // Validate required environment variables
 const requiredEnvVars = ['JWT_SECRET', 'JWT_REFRESH_SECRET', 'DATABASE_URL'];
@@ -45,43 +48,138 @@ if (
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Security middleware
+const helmet = require('helmet');
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false
+}));
+
+// CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173'
+    ];
+    
+    // Add production origins if in production
+    if (process.env.NODE_ENV === 'production') {
+      allowedOrigins.push(process.env.FRONTEND_URL);
+    }
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['RateLimit-Limit', 'RateLimit-Remaining', 'RateLimit-Reset']
+};
+
+app.use(cors(corsOptions));
+
+// Body parsing with size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
 app.use(sanitizeAll); // Sanitize all input data
+
+// Security headers
+app.use(securityHeaders);
+
+// Token blacklist check for all API routes
+app.use('/api', checkTokenBlacklist);
 
 // Rate limiting
 app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter);
+app.use('/api/auth/reset-password', sensitiveLimiter);
+app.use('/api/auth/change-password', sensitiveLimiter);
 app.use(generalLimiter);
 
-// Serve uploaded files statically with cache headers
+// Secure static file serving
 const path = require('path');
+const fs = require('fs');
 
-// Cache static files for 1 hour
+// Validate file path to prevent directory traversal
+const validateFilePath = (req, res, next) => {
+  const requestedPath = req.path;
+  
+  // Check for directory traversal attempts
+  if (requestedPath.includes('..') || requestedPath.includes('~')) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  
+  // Check for dangerous file extensions
+  const dangerousExtensions = ['.exe', '.bat', '.cmd', '.com', '.pif', '.scr', '.vbs', '.js', '.jar'];
+  const fileExtension = path.extname(requestedPath).toLowerCase();
+  
+  if (dangerousExtensions.includes(fileExtension)) {
+    return res.status(403).json({ error: 'File type not allowed' });
+  }
+  
+  next();
+};
+
+// Cache static files with security headers
 const staticOptions = {
   maxAge: '1h',
   etag: true,
   lastModified: true,
+  setHeaders: (res, filePath) => {
+    // Security headers for static files
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    
+    // Prevent execution of uploaded files
+    const ext = path.extname(filePath).toLowerCase();
+    if (['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext)) {
+      res.setHeader('Content-Type', 'image/' + ext.substring(1));
+    } else if (['.pdf'].includes(ext)) {
+      res.setHeader('Content-Type', 'application/pdf');
+    }
+  }
 };
 
-app.use(
-  '/uploads',
-  express.static(path.join(__dirname, 'uploads'), staticOptions)
-);
-app.use(
-  '/assets',
-  express.static(path.join(__dirname, 'assets'), staticOptions)
-);
+// Serve static files with validation
+app.use('/uploads', validateFilePath, express.static(path.join(__dirname, 'uploads'), staticOptions));
+app.use('/assets', validateFilePath, express.static(path.join(__dirname, 'assets'), staticOptions));
 
-// Additional CORS headers for static files
+// Secure CORS headers for static files
 app.use('/assets', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:5173');
   res.header('Access-Control-Allow-Methods', 'GET');
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept'
-  );
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
+
+app.use('/uploads', (req, res, next) => {
+  res.header('Access-Control-Allow-Origin', process.env.FRONTEND_URL || 'http://localhost:5173');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Credentials', 'true');
   next();
 });
 

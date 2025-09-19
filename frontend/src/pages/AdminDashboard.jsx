@@ -40,13 +40,20 @@ const AdminDashboard = () => {
       setLoading(true);
       console.log('📊 Fetching admin dashboard data for user:', user.username);
 
-      // Fetch basic stats
-      setStats({
-        totalUsers: 150,
-        totalReports: 1250,
-        totalCities: 25,
-        activeReports: 89
-      });
+      // Fetch real dashboard stats from API
+      const response = await makeAuthenticatedRequest(API_ENDPOINTS.ANALYTICS_DASHBOARD);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setStats({
+          totalUsers: data.data.totalUsers,
+          totalReports: data.data.totalReports,
+          totalCities: data.data.totalCities,
+          activeReports: data.data.activeReports
+        });
+      } else {
+        throw new Error('Failed to fetch dashboard data');
+      }
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

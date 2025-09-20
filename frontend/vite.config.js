@@ -11,7 +11,7 @@ export default defineConfig({
       '127.0.0.1',
       '8caf94437f06.ngrok-free.app', // Your ngrok host
       '.ngrok-free.app', // Allow all ngrok subdomains
-      '.ngrok.io', // Allow legacy ngrok domains
+      'citywatchmain-xzpj.onrender.com', // Allow legacy ngrok domains
     ],
   },
 })

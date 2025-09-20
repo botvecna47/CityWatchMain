@@ -18,6 +18,10 @@ const {
   getReportTimeline,
   getNearbyReports,
   checkDuplicateReport,
+  verifyReport,
+  getReportVerification,
+  voteOnReport,
+  getUserVote,
 } = require('../controllers/reportsController');
 
 // All routes require authentication
@@ -56,5 +60,17 @@ router.patch('/:id/close', postLimiter, closeReport);
 
 // DELETE /api/reports/:id - Delete report (Admin only - enforced in controller)
 router.delete('/:id', postLimiter, deleteReport);
+
+// POST /api/reports/:id/verify - Verify report resolution (Citizens only)
+router.post('/:id/verify', postLimiter, verifyReport);
+
+// GET /api/reports/:id/verification - Get report verification status
+router.get('/:id/verification', getReportVerification);
+
+// POST /api/reports/:id/vote - Vote on report severity (Citizens only)
+router.post('/:id/vote', postLimiter, voteOnReport);
+
+// GET /api/reports/:id/vote - Get user's vote on report
+router.get('/:id/vote', getUserVote);
 
 module.exports = router;

@@ -4,12 +4,14 @@ import { useToast } from '../contexts/ToastContext';
 import { Link } from 'react-router-dom';
 import LazyImage from '../components/LazyImage';
 import CityMap from '../components/CityMap';
+import CityChangeRequest from '../components/CityChangeRequest';
 import Button from '../components/ui/Button';
+import ReportCard from '../components/ReportCard';
 import { API_ENDPOINTS } from '../config/api';
-import { Plus, LogOut } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 const Dashboard = () => {
-  const { user, logout, makeAuthenticatedRequest, loading: authLoading } = useAuth();
+  const { user, makeAuthenticatedRequest, loading: authLoading } = useAuth();
   const { success, error: showError } = useToast();
   
   // Data states
@@ -17,10 +19,6 @@ const Dashboard = () => {
   const [alerts, setAlerts] = useState([]);
   const [trendingReports, setTrendingReports] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
-
-  const handleLogout = () => {
-    logout();
-  };
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -98,6 +96,22 @@ const Dashboard = () => {
     }
   }, [user]);
 
+  const handleVote = (reportId, voteData) => {
+    // Update the trending reports with new voting data
+    setTrendingReports(prevReports => 
+      prevReports.map(report => 
+        report.id === reportId 
+          ? { 
+              ...report, 
+              severity: voteData.averageSeverity,
+              voteCount: voteData.voteCount,
+              priority: voteData.priority
+            }
+          : report
+      )
+    );
+  };
+
   const getRoleColor = (role) => {
     switch (role) {
       case 'admin':
@@ -165,7 +179,7 @@ const Dashboard = () => {
             <div className="flex items-center space-x-4">
               {user.profilePictureUrl ? (
                 <LazyImage
-                  src={user.profilePictureUrl}
+                  src={`http://localhost:5000${user.profilePictureUrl}`}
                   alt={user.username}
                   className="w-10 h-10 rounded-full object-cover"
                 />
@@ -195,14 +209,6 @@ const Dashboard = () => {
                   Create Report
                 </Button>
               </Link>
-              <Button
-                onClick={handleLogout}
-                variant="secondary"
-                size="sm"
-                leftIcon={<LogOut className="w-4 h-4" />}
-              >
-                Logout
-              </Button>
             </div>
           </div>
         </div>
@@ -351,41 +357,22 @@ const Dashboard = () => {
                   <p className="mt-1 text-sm text-gray-500">Be the first to create a report!</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="grid gap-4">
                   {trendingReports.map((report) => (
-                    <div key={report.id} className="border-b border-gray-200 pb-4 last:border-b-0">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-medium text-gray-600">
-                            {report.author?.username?.charAt(0).toUpperCase() || 'U'}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h3 className="text-sm font-medium text-gray-900 line-clamp-1">
-                              {report.title}
-                            </h3>
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-                              {report.status}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 line-clamp-2 mb-2">
-                            {report.description}
-                          </p>
-                          <div className="flex items-center space-x-3 text-xs text-gray-500">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(report.category)}`}>
-                              {report.category}
-                            </span>
-                            <span>{formatDate(report.createdAt)}</span>
-                            <span>{report.comments?.length || 0} comments</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <ReportCard 
+                      key={report.id}
+                      report={report}
+                      onVote={handleVote}
+                    />
                   ))}
                 </div>
               )}
             </div>
+          </div>
+
+          {/* City Change Request Section */}
+          <div className="lg:col-span-1">
+            <CityChangeRequest />
           </div>
         </div>
 

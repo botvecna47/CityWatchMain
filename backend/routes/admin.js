@@ -6,7 +6,13 @@ const {
   getUsers,
   updateUserRole,
   toggleUserBan,
+  updateUserCity,
   createAdmin,
+  createAuthority,
+  getAuthorityTypes,
+  createAuthorityType,
+  updateAuthorityType,
+  deleteAuthorityType,
   getReports,
   deleteReport,
   restoreReport,
@@ -28,7 +34,17 @@ router.get('/dashboard/stats', getDashboardStats);
 router.get('/users', getUsers);
 router.patch('/users/:id/role', updateUserRole);
 router.patch('/users/:id/ban', toggleUserBan);
+router.patch('/users/:id/city', updateUserCity);
 router.post('/users', createAdmin);
+
+// Authority creation
+router.post('/create-authority', createAuthority);
+
+// Authority types management
+router.get('/authority-types', getAuthorityTypes);
+router.post('/authority-types', createAuthorityType);
+router.put('/authority-types/:id', updateAuthorityType);
+router.delete('/authority-types/:id', deleteAuthorityType);
 
 // Report management
 router.get('/reports', getReports);

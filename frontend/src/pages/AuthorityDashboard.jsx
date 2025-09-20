@@ -18,12 +18,11 @@ import {
   Eye,
   MessageSquare,
   MapPin,
-  LogOut,
   Shield
 } from 'lucide-react';
 
 const AuthorityDashboard = () => {
-  const { user, logout, makeAuthenticatedRequest } = useAuth();
+  const { user, makeAuthenticatedRequest } = useAuth();
   const { success: showSuccess, error: showError } = useToast();
   
   // Data states
@@ -40,10 +39,6 @@ const AuthorityDashboard = () => {
     activeAlerts: 0
   });
   const [loading, setLoading] = useState(true);
-
-  const handleLogout = () => {
-    logout();
-  };
 
   // Fetch dashboard data
   const fetchDashboardData = async () => {
@@ -149,14 +144,6 @@ const AuthorityDashboard = () => {
                 <Calendar className="w-4 h-4 mr-2" />
                 Manage Events
               </Link>
-              <Button
-                onClick={handleLogout}
-                variant="secondary"
-                size="sm"
-                leftIcon={<LogOut className="w-4 h-4" />}
-              >
-                Logout
-              </Button>
             </div>
           </div>
         </div>

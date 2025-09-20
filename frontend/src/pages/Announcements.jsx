@@ -22,13 +22,13 @@ const Announcements = () => {
       
       // Fetch both alerts and events
       const [alertsResponse, eventsResponse] = await Promise.all([
-        fetch(`${API_ENDPOINTS.ALERTS}?cityId=${user?.cityId}`, {
+        fetch(`${API_ENDPOINTS.ALERTS}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         }),
-        fetch(`${API_ENDPOINTS.EVENTS}?cityId=${user?.cityId}`, {
+        fetch(`${API_ENDPOINTS.EVENTS}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

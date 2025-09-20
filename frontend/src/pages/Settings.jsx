@@ -5,7 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { user, login, makeAuthenticatedRequest } = useAuth();
+  const { user, login, makeAuthenticatedRequest, fetchUserData } = useAuth();
   const { success: showSuccess, error: showError } = useToast();
   const [cities, setCities] = useState([]);
   const [citiesLoading, setCitiesLoading] = useState(true);
@@ -108,12 +108,8 @@ const Settings = () => {
 
       showSuccess('Profile updated successfully!');
       
-      // Update user context with new profile info
-      const updatedUser = { ...user, ...data.user };
-      login(updatedUser, {
-        accessToken: localStorage.getItem('accessToken'),
-        refreshToken: localStorage.getItem('refreshToken')
-      });
+      // Refresh user data from server to get updated profile picture
+      await fetchUserData();
       
       // Clear profile picture state
       setProfilePicture(null);
@@ -223,7 +219,7 @@ const Settings = () => {
                           alt="Profile preview"
                           className="w-full h-full object-cover"
                         />
-                      ) : user.profilePicture ? (
+                      ) : user.profilePictureUrl ? (
                         <img
                           src={`http://localhost:5000${user.profilePictureUrl}`}
                           alt="Profile"

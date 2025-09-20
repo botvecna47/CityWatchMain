@@ -1,5 +1,5 @@
 const prisma = require('../services/database');
-const { notifyAlertCreated } = require('../services/notificationService');
+const { createAlertNotification } = require('../services/notificationService');
 
 // Create a new alert (Authority/Admin only)
 const createAlert = async (req, res) => {
@@ -82,12 +82,7 @@ const createAlert = async (req, res) => {
 
     // Notify all users in the city about the new alert
     try {
-      await notifyAlertCreated(
-        alertCityId,
-        alert.id,
-        alert.title,
-        alert.creator.username
-      );
+      await createAlertNotification(alert.id, alertCityId);
     } catch (notificationError) {
       console.error('Error notifying users of new alert:', notificationError);
       // Don't fail the alert creation if notification fails

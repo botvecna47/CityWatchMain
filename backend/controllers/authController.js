@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../services/database');
 const { generateOTP, sendOTPEmail } = require('../utils/mailer');
+const { generateOTP: generatePhoneOTP, sendOTPSMS } = require('../utils/smsService');
 const { blacklistToken } = require('../middleware/tokenBlacklist');
 
 // Generate JWT tokens
@@ -77,17 +78,19 @@ const validateSignupData = async (req, res) => {
       !firstName ||
       !lastName ||
       !dob ||
-      !mobile
+      !mobile ||
+      !agreedTos
     ) {
       return res.status(400).json({
         error:
-          'All fields are required: username, email, password, cityId, firstName, lastName, dob, mobile'
+          'All fields are required: username, email, password, cityId, firstName, lastName, dob, mobile, and you must agree to terms and conditions'
       });
     }
 
+    // Validate terms and conditions agreement
     if (!agreedTos) {
       return res.status(400).json({
-        error: 'You must agree to the Terms and Conditions'
+        error: 'You must agree to the terms and conditions'
       });
     }
 
@@ -387,29 +390,28 @@ const completeSignup = async (req, res) => {
 // Login
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { emailOrUsername, password } = req.body;
 
     // Validation
-    if (!email || !password) {
+    if (!emailOrUsername || !password) {
       return res.status(400).json({
-        error: 'Email and password are required'
+        error: 'Email/Username and password are required'
       });
     }
 
-    if (!isValidEmail(email)) {
-      return res.status(400).json({
-        error: 'Please provide a valid email address'
-      });
-    }
-
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email }
+    // Find user by email or username
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: emailOrUsername },
+          { username: emailOrUsername }
+        ]
+      }
     });
 
     if (!user) {
       return res.status(401).json({
-        error: 'Invalid email or password'
+        error: 'Invalid email/username or password'
       });
     }
 
@@ -757,6 +759,147 @@ const resendOTP = async (req, res) => {
   }
 };
 
+// Send phone verification OTP
+const sendPhoneVerificationOTP = async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    const userId = req.user.id;
+
+    if (!phoneNumber) {
+      return res.status(400).json({
+        error: 'Phone number is required'
+      });
+    }
+
+    if (!isValidMobile(phoneNumber)) {
+      return res.status(400).json({
+        error: 'Please provide a valid 10-digit Indian mobile number'
+      });
+    }
+
+    // Check if phone number is already verified for another user
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        mobile: phoneNumber,
+        isPhoneVerified: true,
+        id: { not: userId }
+      }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        error: 'This phone number is already verified for another account'
+      });
+    }
+
+    // Generate OTP
+    const otp = generatePhoneOTP();
+    const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Update user with phone OTP
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        phoneOtpCode: otp,
+        phoneOtpExpires: otpExpires
+      }
+    });
+
+    // Send SMS
+    const smsResult = await sendOTPSMS(phoneNumber, otp);
+    
+    if (!smsResult.success) {
+      return res.status(500).json({
+        error: 'Failed to send verification SMS'
+      });
+    }
+
+    const response = {
+      message: 'Phone verification OTP sent successfully'
+    };
+
+    // If in demo mode, include the OTP in the response
+    if (smsResult.demo) {
+      response.demo = true;
+      response.otp = otp;
+      response.note = 'SMS service not configured. Use the OTP above for testing.';
+    }
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('Send phone OTP error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
+// Verify phone OTP
+const verifyPhoneOTP = async (req, res) => {
+  try {
+    const { otp } = req.body;
+    const userId = req.user.id;
+
+    if (!otp) {
+      return res.status(400).json({
+        error: 'OTP is required'
+      });
+    }
+
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    // Check if OTP exists and is not expired
+    if (!user.phoneOtpCode || !user.phoneOtpExpires) {
+      return res.status(400).json({
+        error: 'No verification OTP found. Please request a new one.'
+      });
+    }
+
+    if (new Date() > user.phoneOtpExpires) {
+      return res.status(400).json({
+        error: 'OTP has expired. Please request a new one.'
+      });
+    }
+
+    // Verify OTP
+    if (user.phoneOtpCode !== otp) {
+      return res.status(400).json({
+        error: 'Invalid OTP'
+      });
+    }
+
+    // Mark phone as verified and clear OTP
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isPhoneVerified: true,
+        phoneOtpCode: null,
+        phoneOtpExpires: null
+      }
+    });
+
+    res.json({
+      message: 'Phone number verified successfully'
+    });
+
+  } catch (error) {
+    console.error('Verify phone OTP error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   validateSignupData,
   sendVerificationEmail,
@@ -766,5 +909,7 @@ module.exports = {
   refreshToken,
   getMe,
   verifyOTP,
-  resendOTP
+  resendOTP,
+  sendPhoneVerificationOTP,
+  verifyPhoneOTP
 };

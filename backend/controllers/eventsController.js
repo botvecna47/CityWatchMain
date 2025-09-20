@@ -1,7 +1,10 @@
 const prisma = require('../services/database');
 const fs = require('fs');
 const path = require('path');
-const { notifyEventCreated } = require('../services/notificationService');
+const { 
+  createEventNotification, 
+  createEventApprovalNotification 
+} = require('../services/notificationService');
 
 // Create a new event
 const createEvent = async (req, res) => {
@@ -60,7 +63,8 @@ const createEvent = async (req, res) => {
         location: location?.trim() || null,
         imageUrl,
         cityId,
-        createdBy
+        createdBy,
+        status: 'PENDING'
       },
       include: {
         creator: {
@@ -81,18 +85,7 @@ const createEvent = async (req, res) => {
       }
     });
 
-    // Notify all users in the city about the new event
-    try {
-      await notifyEventCreated(
-        cityId,
-        event.id,
-        event.title,
-        event.creator.username
-      );
-    } catch (notificationError) {
-      console.error('Error notifying users of new event:', notificationError);
-      // Don't fail the event creation if notification fails
-    }
+    // Event is now pending approval - no immediate notifications
 
     // Generate image URL if present
     if (event.imageUrl) {
@@ -100,8 +93,9 @@ const createEvent = async (req, res) => {
     }
 
     res.status(201).json({
-      message: 'Event created successfully',
-      event
+      success: true,
+      message: 'Event submitted for approval. You will be notified once it is reviewed by an administrator.',
+      data: event
     });
   } catch (error) {
     console.error('Error creating event:', error);
@@ -367,10 +361,254 @@ const getMyEvents = async (req, res) => {
   }
 };
 
+// Approve an event (Admin only)
+const approveEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = req.user.id;
+
+    // Check if event exists and is pending
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            isEmailVerified: true
+          }
+        },
+        city: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (!event) {
+      return res.status(404).json({
+        error: 'Event not found'
+      });
+    }
+
+    if (event.status !== 'PENDING') {
+      return res.status(400).json({
+        error: 'Event is not pending approval'
+      });
+    }
+
+    // Update event status to approved
+    const updatedEvent = await prisma.event.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        approvedBy: adminId,
+        approvedAt: new Date()
+      },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            username: true,
+            role: true,
+            profilePicture: true
+          }
+        },
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
+      }
+    });
+
+    // Send notifications to all users in the city
+    try {
+      await createEventNotification(id);
+    } catch (notificationError) {
+      console.error('Error creating event notifications:', notificationError);
+    }
+
+    // Send approval notification to event creator
+    try {
+      await createEventApprovalNotification(id, 'APPROVED');
+    } catch (approvalNotificationError) {
+      console.error('Error creating approval notification:', approvalNotificationError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Event approved successfully',
+      data: updatedEvent
+    });
+
+  } catch (error) {
+    console.error('Error approving event:', error);
+    res.status(500).json({
+      error: 'Failed to approve event'
+    });
+  }
+};
+
+// Reject an event (Admin only)
+const rejectEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rejectionReason } = req.body;
+    const adminId = req.user.id;
+
+    // Check if event exists and is pending
+    const event = await prisma.event.findUnique({
+      where: { id },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            isEmailVerified: true
+          }
+        }
+      }
+    });
+
+    if (!event) {
+      return res.status(404).json({
+        error: 'Event not found'
+      });
+    }
+
+    if (event.status !== 'PENDING') {
+      return res.status(400).json({
+        error: 'Event is not pending approval'
+      });
+    }
+
+    // Update event status to rejected
+    const updatedEvent = await prisma.event.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        approvedBy: adminId,
+        approvedAt: new Date(),
+        rejectionReason: rejectionReason || 'No reason provided'
+      },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            username: true,
+            role: true,
+            profilePicture: true
+          }
+        },
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
+      }
+    });
+
+    // Send rejection notification to event creator
+    try {
+      await createEventApprovalNotification(id, 'REJECTED', rejectionReason);
+    } catch (rejectionNotificationError) {
+      console.error('Error creating rejection notification:', rejectionNotificationError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Event rejected successfully',
+      data: updatedEvent
+    });
+
+  } catch (error) {
+    console.error('Error rejecting event:', error);
+    res.status(500).json({
+      error: 'Failed to reject event'
+    });
+  }
+};
+
+// Get pending events for admin approval
+const getPendingEvents = async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const events = await prisma.event.findMany({
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'desc' },
+      take: parseInt(limit),
+      skip: offset,
+      include: {
+        creator: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            profilePicture: true
+          }
+        },
+        city: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
+      }
+    });
+
+    const totalCount = await prisma.event.count({
+      where: { status: 'PENDING' }
+    });
+
+    // Generate image URLs
+    events.forEach(event => {
+      if (event.imageUrl) {
+        event.imageUrl = `http://localhost:5000${event.imageUrl}`;
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        events,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: totalCount,
+          pages: Math.ceil(totalCount / limit)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching pending events:', error);
+    res.status(500).json({
+      error: 'Failed to fetch pending events'
+    });
+  }
+};
+
 module.exports = {
   createEvent,
   getEvents,
   getEventById,
   deleteEvent,
-  getMyEvents
+  getMyEvents,
+  approveEvent,
+  rejectEvent,
+  getPendingEvents
 };

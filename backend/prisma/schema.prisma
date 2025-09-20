@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,10 +7,328 @@ datasource db {
   url      = "file:./dev.db"
 }
 
+model City {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  state     String?
+  country   String?
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  alerts    Alert[]
+  events    Event[]
+  reports   Report[]
+  users     User[]
+  currentCityRequests CityChangeRequest[] @relation("CurrentCityRequests")
+  requestedCityRequests CityChangeRequest[] @relation("RequestedCityRequests")
+
+  @@map("cities")
+}
+
+model AuthorityType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  displayName String
+  icon        String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  users       User[]
+
+  @@map("authority_types")
+}
+
+model CityChangeRequest {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  currentCityId String?
+  currentCity City?    @relation("CurrentCityRequests", fields: [currentCityId], references: [id])
+  requestedCityId String
+  requestedCity City   @relation("RequestedCityRequests", fields: [requestedCityId], references: [id])
+  reason      String?
+  status      String   @default("pending") // pending, approved, rejected
+  adminId     String?
+  admin       User?    @relation("CityChangeApprovals", fields: [adminId], references: [id])
+  adminNotes  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("city_change_requests")
+}
+
+model ReportVerification {
+  id        String   @id @default(uuid())
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  verified  Boolean  @default(false)
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([reportId, userId])
+  @@map("report_verifications")
+}
+
+model ReportVote {
+  id        String   @id @default(uuid())
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  severity  Int      // 1-10 scale, how severe the user thinks this issue is
+  createdAt DateTime @default(now())
+
+  @@unique([reportId, userId])
+  @@map("report_votes")
+}
+
+model User {
+  id                 String            @id @default(uuid())
+  username           String            @unique
+  email              String            @unique
+  password           String
+  firstName          String?
+  middleName         String?
+  lastName           String?
+  dob                DateTime?
+  mobile             String?
+  agreedTos          Boolean           @default(false)
+  isVerified         Boolean           @default(false)
+  isEmailVerified    Boolean           @default(false)
+  isPhoneVerified    Boolean           @default(false)
+  otpCode            String?
+  otpExpires         DateTime?
+  phoneOtpCode       String?
+  phoneOtpExpires    DateTime?
+  role               Role              @default(citizen)
+  cityId             String?
+  authorityTypeId    String?
+  department         String?
+  badgeNumber        String?
+  phone              String?
+  isBanned           Boolean           @default(false)
+  profilePicture     String?
+  bio                String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  alerts             Alert[]
+  auditLogsPerformed AuditLog[]        @relation("AuditLogPerformedBy")
+  auditLogs          AuditLog[]
+  authorityUpdates   AuthorityUpdate[]
+  comments           Comment[]
+  events             Event[]
+  notifications      Notification[]
+  reports            Report[]
+  authorityType      AuthorityType?    @relation(fields: [authorityTypeId], references: [id])
+  city               City?             @relation(fields: [cityId], references: [id])
+  cityChangeRequests CityChangeRequest[]
+  cityChangeApprovals CityChangeRequest[] @relation("CityChangeApprovals")
+  reportVerifications ReportVerification[]
+  reportVotes ReportVote[]
+  approvedEvents Event[] @relation("EventApprover")
+
+  @@index([role])
+  @@index([cityId])
+  @@index([isBanned])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Report {
+  id               String            @id @default(uuid())
+  title            String
+  description      String
+  category         Category
+  status           Status            @default(OPEN)
+  priority         Priority          @default(MEDIUM)
+  severity         Int               @default(1) // 1-10 scale
+  voteCount        Int               @default(1) // Number of users who voted for this report
+  cityId           String
+  authorId         String
+  deleted          Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  latitude         Float?
+  longitude        Float?
+  attachments      Attachment[]
+  authorityUpdates AuthorityUpdate[]
+  comments         Comment[]
+  embedding        ReportEmbedding?
+  author           User              @relation(fields: [authorId], references: [id])
+  city             City              @relation(fields: [cityId], references: [id])
+  verifications    ReportVerification[]
+  votes            ReportVote[]
+
+  @@index([cityId])
+  @@index([status])
+  @@index([priority])
+  @@index([severity])
+  @@index([deleted])
+  @@index([createdAt])
+  @@index([authorId])
+  @@index([category])
+  @@index([latitude, longitude])
+  @@map("reports")
+}
+
+model AuthorityUpdate {
+  id               String   @id @default(uuid())
+  reportId         String
+  authorityId      String
+  text             String
+  newStatus        Status?
+  createdAt        DateTime @default(now())
+  resolutionImages String?
+  authority        User     @relation(fields: [authorityId], references: [id])
+  report           Report   @relation(fields: [reportId], references: [id])
+
+  @@map("authority_updates")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  actorId       String
+  actorRole     Role
+  action        String
+  actionType    String
+  targetType    String
+  targetId      String
+  performedById String
+  reason        String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  performedBy   User     @relation("AuditLogPerformedBy", fields: [performedById], references: [id])
+  actor         User     @relation(fields: [actorId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  reportId  String
+  authorId  String
+  createdAt DateTime @default(now())
+  report    Report   @relation(fields: [reportId], references: [id])
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@index([reportId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("comments")
+}
+
+model Attachment {
+  id        String   @id @default(uuid())
+  filename  String
+  filepath  String
+  mimetype  String
+  size      Int
+  reportId  String
+  createdAt DateTime @default(now())
+  report    Report   @relation(fields: [reportId], references: [id])
+
+  @@map("attachments")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  reportId  String?
+  alertId   String?
+  eventId   String?
+  createdAt DateTime @default(now())
+  Alert     Alert?   @relation(fields: [alertId], references: [id])
+  Event     Event?   @relation(fields: [eventId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([type])
+  @@map("notifications")
+}
+
+model Alert {
+  id            String         @id @default(uuid())
+  title         String
+  message       String
+  cityId        String
+  createdBy     String
+  isPinned      Boolean        @default(false)
+  deleted       Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  creator       User           @relation(fields: [createdBy], references: [id])
+  city          City           @relation(fields: [cityId], references: [id])
+  notifications Notification[]
+
+  @@index([cityId])
+  @@index([createdBy])
+  @@index([isPinned])
+  @@index([deleted])
+  @@index([createdAt])
+  @@map("alerts")
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  dateTime    DateTime
+  location    String?
+  imageUrl    String?
+  cityId      String
+  createdBy   String
+  status      EventStatus @default(PENDING)
+  approvedBy  String?
+  approvedAt  DateTime?
+  rejectionReason String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  creator     User     @relation(fields: [createdBy], references: [id])
+  approver    User?    @relation("EventApprover", fields: [approvedBy], references: [id])
+  city        City     @relation(fields: [cityId], references: [id])
+  notifications Notification[]
+
+  @@index([cityId])
+  @@index([createdBy])
+  @@index([dateTime])
+  @@index([createdAt])
+  @@index([status])
+  @@map("events")
+}
+
+model ReportEmbedding {
+  id        String   @id @default(uuid())
+  reportId  String   @unique
+  embedding Json
+  createdAt DateTime @default(now())
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@map("report_embeddings")
+}
+
 enum Role {
   citizen
   authority
   admin
+}
+
+enum EventStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum Category {
@@ -34,233 +346,9 @@ enum Status {
   CLOSED
 }
 
-model City {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  users   User[]
-  reports Report[]
-  alerts  Alert[]
-  events  Event[]
-
-  @@map("cities")
-}
-
-model User {
-  id             String   @id @default(uuid())
-  username       String   @unique
-  email          String   @unique
-  password       String
-  firstName      String?
-  middleName     String?
-  lastName       String?
-  dob            DateTime?
-  mobile         String?
-  agreedTos      Boolean  @default(false)
-  isVerified     Boolean  @default(false)
-  otpCode        String?
-  otpExpires     DateTime?
-  role           Role     @default(citizen)
-  cityId         String?
-  city           City?    @relation(fields: [cityId], references: [id])
-  isBanned       Boolean  @default(false)
-  profilePicture String?
-  bio            String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  reports            Report[]
-  authorityUpdates   AuthorityUpdate[]
-  auditLogs          AuditLog[]
-  auditLogsPerformed AuditLog[]        @relation("AuditLogPerformedBy")
-  comments           Comment[]
-  notifications      Notification[]
-  alerts             Alert[]
-  events             Event[]
-
-  // Indexes for performance
-  @@index([role])
-  @@index([cityId])
-  @@index([isBanned])
-  @@index([createdAt])
-  @@map("users")
-}
-
-model Report {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  category    Category
-  status      Status   @default(OPEN)
-  cityId      String
-  city        City     @relation(fields: [cityId], references: [id])
-  authorId    String
-  author      User     @relation(fields: [authorId], references: [id])
-  latitude    Float?
-  longitude   Float?
-  deleted     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  authorityUpdates AuthorityUpdate[]
-  comments         Comment[]
-  attachments      Attachment[]
-  embedding        ReportEmbedding?
-
-  // Indexes for performance
-  @@index([cityId])
-  @@index([status])
-  @@index([deleted])
-  @@index([createdAt])
-  @@index([authorId])
-  @@index([category])
-  @@index([latitude, longitude])
-  @@map("reports")
-}
-
-model AuthorityUpdate {
-  id          String   @id @default(uuid())
-  reportId    String
-  report      Report   @relation(fields: [reportId], references: [id])
-  authorityId String
-  authority   User     @relation(fields: [authorityId], references: [id])
-  text        String
-  newStatus   Status?
-  resolutionImages String? // JSON string of image filenames for resolution proof
-  createdAt   DateTime @default(now())
-
-  @@map("authority_updates")
-}
-
-model AuditLog {
-  id            String   @id @default(uuid())
-  actorId       String
-  actorRole     Role
-  action        String
-  actionType    String // USER_PROMOTE, USER_DEMOTE, USER_BAN, REPORT_DELETE, REPORT_RESTORE
-  targetType    String
-  targetId      String
-  performedById String
-  reason        String?
-  metadata      Json?
-  createdAt     DateTime @default(now())
-
-  // Relations
-  actor       User @relation(fields: [actorId], references: [id])
-  performedBy User @relation("AuditLogPerformedBy", fields: [performedById], references: [id])
-
-  @@map("audit_logs")
-}
-
-model Comment {
-  id        String   @id @default(uuid())
-  content   String
-  reportId  String
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-  report    Report   @relation(fields: [reportId], references: [id])
-  createdAt DateTime @default(now())
-
-  // Indexes for performance
-  @@index([reportId])
-  @@index([authorId])
-  @@index([createdAt])
-  @@map("comments")
-}
-
-model Attachment {
-  id        String   @id @default(uuid())
-  filename  String
-  filepath  String
-  mimetype  String
-  size      Int
-  reportId  String
-  report    Report   @relation(fields: [reportId], references: [id])
-  createdAt DateTime @default(now())
-
-  @@map("attachments")
-}
-
-model Notification {
-  id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  type      String // "REPORT_CREATED", "COMMENT_ADDED", "REPORT_UPDATED", "REPORT_CLOSED", "ALERT_CREATED"
-  message   String
-  link      String? // Optional link to related content (e.g., /reports/:id)
-  isRead    Boolean  @default(false)
-  reportId  String? // Optional reference to the related report
-  alertId   String? // Optional reference to the related alert
-  createdAt DateTime @default(now())
-  Alert     Alert?   @relation(fields: [alertId], references: [id])
-
-  // Indexes for performance
-  @@index([userId])
-  @@index([isRead])
-  @@index([createdAt])
-  @@index([type])
-  @@map("notifications")
-}
-
-model Alert {
-  id        String   @id @default(uuid())
-  title     String
-  message   String
-  cityId    String
-  city      City     @relation(fields: [cityId], references: [id])
-  createdBy String
-  creator   User     @relation(fields: [createdBy], references: [id])
-  isPinned  Boolean  @default(false)
-  deleted   Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  notifications Notification[]
-
-  // Indexes for performance
-  @@index([cityId])
-  @@index([createdBy])
-  @@index([isPinned])
-  @@index([deleted])
-  @@index([createdAt])
-  @@map("alerts")
-}
-
-model Event {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  dateTime    DateTime
-  location    String?
-  imageUrl    String?
-  cityId      String
-  city        City     @relation(fields: [cityId], references: [id])
-  createdBy   String
-  creator     User     @relation(fields: [createdBy], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Indexes for performance
-  @@index([cityId])
-  @@index([createdBy])
-  @@index([dateTime])
-  @@index([createdAt])
-  @@map("events")
-}
-
-model ReportEmbedding {
-  id        String   @id @default(uuid())
-  reportId  String   @unique
-  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  embedding Json     // Array of float numbers representing the embedding vector
-  createdAt DateTime @default(now())
-
-  @@map("report_embeddings")
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }

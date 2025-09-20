@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API_ENDPOINTS } from '../config/api';
 import Button from '../components/ui/Button';
+import ReportCard from '../components/ReportCard';
 
 const ReportsPage = () => {
   const { user, makeAuthenticatedRequest } = useAuth();
@@ -94,39 +95,28 @@ const ReportsPage = () => {
     return getFilteredReports().filter(report => report.status === status);
   };
 
+  const handleVote = (reportId, voteData) => {
+    // Update the report in the local state with new voting data
+    setReports(prevReports => 
+      prevReports.map(report => 
+        report.id === reportId 
+          ? { 
+              ...report, 
+              severity: voteData.averageSeverity,
+              voteCount: voteData.voteCount,
+              priority: voteData.priority
+            }
+          : report
+      )
+    );
+  };
+
   const renderReportCard = (report) => (
-    <Link
+    <ReportCard 
       key={report.id}
-      to={`/reports/${report.id}`}
-      className="block bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200"
-    >
-      <div className="flex justify-between items-start mb-2">
-        <h3 className="text-lg font-medium text-gray-900 line-clamp-2">
-          {report.title}
-        </h3>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-          {getStatusLabel(report.status)}
-        </span>
-      </div>
-      
-      <p className="text-gray-600 text-sm mb-3 line-clamp-2">
-        {report.description}
-      </p>
-      
-      <div className="flex justify-between items-center text-xs text-gray-500">
-        <span>By {report.author?.username || 'Unknown'}</span>
-        <span>{formatDate(report.createdAt)}</span>
-      </div>
-      
-      {report._count && (
-        <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-          <span>{report._count.comments} comments</span>
-          {report._count.attachments > 0 && (
-            <span>{report._count.attachments} attachments</span>
-          )}
-        </div>
-      )}
-    </Link>
+      report={report}
+      onVote={handleVote}
+    />
   );
 
   const renderStatusSection = (status, title) => {

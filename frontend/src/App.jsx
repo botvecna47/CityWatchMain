@@ -4,7 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-import Navbar from './components/Navbar';
+import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleProtectedRoute from './components/RoleProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -22,6 +22,12 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminUsers from './pages/AdminUsers';
 import AdminReports from './pages/AdminReports';
 import AdminSettings from './pages/AdminSettings';
+import CreateAuthority from './pages/CreateAuthority';
+import AuthorityTypes from './pages/AuthorityTypes';
+import AdminCityChangeRequests from './pages/AdminCityChangeRequests';
+import AdminEventApprovals from './pages/AdminEventApprovals';
+import AlertDetail from './pages/AlertDetail';
+import EventDetail from './pages/EventDetail';
 import AuthorityDashboard from './pages/AuthorityDashboard';
 import Alerts from './pages/Alerts';
 import Events from './pages/Events';
@@ -35,9 +41,9 @@ function App() {
           <NotificationProvider>
             <ToastProvider>
               <Router>
-            <div className="App">
-              <Navbar />
-              <Routes>
+                <div className="App">
+                  <Layout>
+                    <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
@@ -122,10 +128,50 @@ function App() {
               } 
             />
             <Route 
+              path="/admin/create-authority" 
+              element={
+                <RoleProtectedRoute allowedRoles={['admin']}>
+                  <CreateAuthority />
+                </RoleProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/authority-types" 
+              element={
+                <RoleProtectedRoute allowedRoles={['admin']}>
+                  <AuthorityTypes />
+                </RoleProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/city-requests" 
+              element={
+                <RoleProtectedRoute allowedRoles={['admin']}>
+                  <AdminCityChangeRequests />
+                </RoleProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/event-approvals" 
+              element={
+                <RoleProtectedRoute allowedRoles={['admin']}>
+                  <AdminEventApprovals />
+                </RoleProtectedRoute>
+              } 
+            />
+            <Route 
               path="/alerts" 
               element={
                 <ProtectedRoute>
                   <Alerts />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/alerts/:id" 
+              element={
+                <ProtectedRoute>
+                  <AlertDetail />
                 </ProtectedRoute>
               } 
             />
@@ -138,6 +184,14 @@ function App() {
               } 
             />
             <Route 
+              path="/events/:id" 
+              element={
+                <ProtectedRoute>
+                  <EventDetail />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/announcements" 
               element={
                 <ProtectedRoute>
@@ -145,9 +199,10 @@ function App() {
                 </ProtectedRoute>
               } 
             />
-            </Routes>
-            </div>
-            <AIAssistant />
+                    </Routes>
+                    <AIAssistant />
+                  </Layout>
+                </div>
               </Router>
             </ToastProvider>
           </NotificationProvider>

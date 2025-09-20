@@ -1,8 +1,9 @@
 const {
   getUserNotifications,
-  markNotificationsAsRead,
-  getUnreadCount
-} = require('../services/notifications');
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  getUnreadNotificationCount: getUnreadCount,
+} = require('../services/notificationService');
 
 /**
  * Get user's notifications with pagination
@@ -19,15 +20,15 @@ const getNotifications = async (req, res) => {
       unreadOnly: unreadOnly === 'true'
     };
 
-    const notifications = await getUserNotifications(userId, options);
+    const result = await getUserNotifications(userId, parseInt(limit), parseInt(offset));
+
+    if (!result.success) {
+      return res.status(500).json({ error: result.error });
+    }
 
     res.json({
-      notifications,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        hasMore: notifications.length === parseInt(limit)
-      },
+      success: true,
+      data: result.data
     });
   } catch (error) {
     console.error('Error getting notifications:', error);
@@ -43,7 +44,11 @@ const markAsRead = async (req, res) => {
     const userId = req.user.id;
     const { id } = req.params;
 
-    await markNotificationsAsRead(userId, [id]);
+    const result = await markNotificationAsRead(id, userId);
+    
+    if (!result.success) {
+      return res.status(500).json({ error: result.error });
+    }
 
     res.json({ message: 'Notification marked as read' });
   } catch (error) {
@@ -59,7 +64,11 @@ const markAllAsRead = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    await markNotificationsAsRead(userId, []);
+    const result = await markAllNotificationsAsRead(userId);
+    
+    if (!result.success) {
+      return res.status(500).json({ error: result.error });
+    }
 
     res.json({ message: 'All notifications marked as read' });
   } catch (error) {
@@ -75,9 +84,13 @@ const getUnreadNotificationCount = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const count = await getUnreadCount(userId);
+    const result = await getUnreadCount(userId);
+    
+    if (!result.success) {
+      return res.status(500).json({ error: result.error });
+    }
 
-    res.json({ unreadCount: count });
+    res.json({ count: result.count });
   } catch (error) {
     console.error('Error getting unread count:', error);
     res.status(500).json({ error: 'Internal server error' });

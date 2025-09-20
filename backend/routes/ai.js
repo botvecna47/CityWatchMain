@@ -7,7 +7,8 @@ const {
   getCityUpdates,
   getSuggestions,
   getHelp,
-  getStatus
+  getStatus,
+  analyzeReportAuthority
 } = require('../controllers/aiController');
 
 // Apply rate limiting to all AI routes
@@ -30,5 +31,8 @@ router.get('/help', getHelp);
 
 // Get AI status (public endpoint for health checks)
 router.get('/status', getStatus);
+
+// Analyze report content to determine appropriate authority type
+router.post('/analyze-report-authority', analyzeReportAuthority);
 
 module.exports = router;

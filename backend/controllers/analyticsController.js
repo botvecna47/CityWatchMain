@@ -83,11 +83,11 @@ const getUserAnalytics = async (req, res) => {
     });
 
     // Get city names for the grouped data
-    const cityIds = usersByCity.map(item => item.cityId);
-    const cities = await prisma.city.findMany({
+    const cityIds = usersByCity.map(item => item.cityId).filter(id => id !== null);
+    const cities = cityIds.length > 0 ? await prisma.city.findMany({
       where: { id: { in: cityIds } },
       select: { id: true, name: true }
-    });
+    }) : [];
 
     // Verified and banned users
     const [verifiedUsers, bannedUsers] = await Promise.all([

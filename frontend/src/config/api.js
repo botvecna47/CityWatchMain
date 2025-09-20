@@ -9,6 +9,10 @@ export const API_ENDPOINTS = {
   SIGNUP_COMPLETE: `${API_BASE_URL}/api/auth/complete-signup`,
   REFRESH: `${API_BASE_URL}/api/auth/refresh`,
   ME: `${API_BASE_URL}/api/auth/me`,
+  VERIFY_OTP: `${API_BASE_URL}/api/auth/verify-otp`,
+  RESEND_OTP: `${API_BASE_URL}/api/auth/resend-otp`,
+  SEND_PHONE_VERIFICATION: `${API_BASE_URL}/api/auth/send-phone-verification`,
+  VERIFY_PHONE_OTP: `${API_BASE_URL}/api/auth/verify-phone-otp`,
   
   // Reports endpoints
   REPORTS: `${API_BASE_URL}/api/reports`,
@@ -19,6 +23,24 @@ export const API_ENDPOINTS = {
   REPORTS_TIMELINE: (id) => `${API_BASE_URL}/api/reports/${id}/timeline`,
   REPORTS_UPDATE: (id) => `${API_BASE_URL}/api/reports/${id}/updates`,
   REPORTS_CLOSE: (id) => `${API_BASE_URL}/api/reports/${id}/close`,
+  REPORTS_VERIFY: (id) => `${API_BASE_URL}/api/reports/${id}/verify`,
+  REPORTS_VERIFICATION: (id) => `${API_BASE_URL}/api/reports/${id}/verification`,
+  REPORT_VOTE: (id) => `${API_BASE_URL}/api/reports/${id}/vote`,
+  
+  // City Change Request endpoints
+  CITY_CHANGE_REQUEST: `${API_BASE_URL}/api/city-change`,
+  CITY_CHANGE_MY_REQUESTS: `${API_BASE_URL}/api/city-change/my-requests`,
+  CITY_CHANGE_ALL: `${API_BASE_URL}/api/city-change/all`,
+  CITY_CHANGE_UPDATE: (id) => `${API_BASE_URL}/api/city-change/${id}`,
+  
+  // Cities endpoints
+  CITIES: `${API_BASE_URL}/api/cities`,
+  
+  // Events endpoints
+  EVENTS: `${API_BASE_URL}/api/events`,
+  
+  // Alerts endpoints
+  ALERTS: `${API_BASE_URL}/api/alerts`,
   
   // Comments endpoints
   COMMENTS: (reportId) => `${API_BASE_URL}/api/comments/${reportId}`,
@@ -49,8 +71,12 @@ export const API_ENDPOINTS = {
   ADMIN_AUDIT: `${API_BASE_URL}/api/admin/audit`,
   ADMIN_USER_ROLE: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/role`,
   ADMIN_USER_BAN: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/ban`,
+  ADMIN_USER_CITY: (userId) => `${API_BASE_URL}/api/admin/users/${userId}/city`,
   ADMIN_REPORT_DELETE: (reportId) => `${API_BASE_URL}/api/admin/reports/${reportId}`,
   ADMIN_REPORT_RESTORE: (reportId) => `${API_BASE_URL}/api/admin/reports/${reportId}/restore`,
+  CREATE_AUTHORITY: `${API_BASE_URL}/api/admin/create-authority`,
+  AUTHORITY_TYPES: `${API_BASE_URL}/api/admin/authority-types`,
+  AUTHORITY_TYPE_BY_ID: (id) => `${API_BASE_URL}/api/admin/authority-types/${id}`,
   
   // Alerts endpoints
   ALERTS: `${API_BASE_URL}/api/alerts`,
@@ -71,6 +97,7 @@ export const API_ENDPOINTS = {
   AI_SUGGESTIONS: `${API_BASE_URL}/api/ai/suggestions`,
   AI_HELP: `${API_BASE_URL}/api/ai/help`,
   AI_STATUS: `${API_BASE_URL}/api/ai/status`,
+  AI_ANALYZE_AUTHORITY: `${API_BASE_URL}/api/ai/analyze-report-authority`,
 
   // Analytics endpoints
   ANALYTICS_DASHBOARD: `${API_BASE_URL}/api/analytics/dashboard`,

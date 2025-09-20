@@ -14,5 +14,6 @@ router.use('/alerts', require('./alerts'));
 router.use('/events', require('./events'));
 router.use('/ai', require('./ai'));
 router.use('/analytics', require('./analytics'));
+router.use('/city-change', require('./cityChange'));
 
 module.exports = router;

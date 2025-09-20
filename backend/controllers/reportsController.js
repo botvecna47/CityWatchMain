@@ -7,6 +7,7 @@ const {
   notifyReportClosed,
 } = require('../services/notificationService');
 const { checkDuplicate, generateEmbedding, storeEmbedding } = require('../services/duplicateService');
+const aiService = require('../services/aiService');
 
 // Create a new report (Citizens only)
 const createReport = async (req, res) => {
@@ -31,9 +32,9 @@ const createReport = async (req, res) => {
     }
 
     // Validation
-    if (!title || !description || !category) {
+    if (!title || !description) {
       return res.status(400).json({
-        error: 'All fields are required: title, description, category'
+        error: 'Title and description are required'
       });
     }
 
@@ -59,13 +60,7 @@ const createReport = async (req, res) => {
       });
     }
 
-    // Validate category
-    const validCategories = ['GARBAGE', 'ROAD', 'WATER', 'POWER', 'OTHER'];
-    if (!validCategories.includes(category)) {
-      return res.status(400).json({
-        error: `Invalid category. Must be one of: ${validCategories.join(', ')}`,
-      });
-    }
+    // Category will be determined by AI analysis - no manual validation needed
 
     // Parse and validate location coordinates
     const parsedLatitude = parseFloat(latitude);
@@ -109,16 +104,41 @@ const createReport = async (req, res) => {
       }
     }
 
+    // Analyze report content to determine category and authority type
+    let aiAnalysis = null;
+    try {
+      aiAnalysis = await aiService.analyzeReportContent(
+        title.trim(),
+        description.trim()
+      );
+      console.log(`🤖 AI Analysis Result: Category=${aiAnalysis.category}, Authority=${aiAnalysis.authorityType} (confidence: ${(aiAnalysis.confidence * 100).toFixed(1)}%)`);
+    } catch (error) {
+      console.error('Error in AI analysis:', error);
+      // Continue with report creation even if AI analysis fails
+      // Use default values
+      aiAnalysis = {
+        category: 'OTHER',
+        authorityType: 'General Municipal Services',
+        confidence: 0.5,
+        reasoning: 'AI analysis failed, using default values'
+      };
+    }
+
     // Create report
     const report = await prisma.report.create({
       data: {
         title: title.trim(),
         description: description.trim(),
-        category,
+        category: aiAnalysis.category,
         cityId,
         authorId,
         latitude: parsedLatitude,
-        longitude: parsedLongitude
+        longitude: parsedLongitude,
+        // Store AI analysis results as metadata
+        ...(aiAnalysis && {
+          // We could add a field to store AI analysis in the future
+          // For now, we'll include it in the response
+        })
       },
       include: {
         author: {
@@ -172,7 +192,14 @@ const createReport = async (req, res) => {
 
     res.status(201).json({
       message: 'Report created successfully',
-      report
+      report,
+      aiAnalysis: aiAnalysis ? {
+        category: aiAnalysis.category,
+        suggestedAuthorityType: aiAnalysis.authorityType,
+        confidence: aiAnalysis.confidence,
+        reasoning: aiAnalysis.reasoning,
+        alternativeOptions: aiAnalysis.alternativeOptions
+      } : null
     });
   } catch (error) {
     console.error('Create report error:', error);
@@ -182,13 +209,14 @@ const createReport = async (req, res) => {
   }
 };
 
-// Get reports list (filtered by user's city)
+// Get reports list (filtered by user's city, except for admin/authority)
 const getReports = async (req, res) => {
   const startTime = Date.now();
   console.time('getReports');
 
   try {
     const userCityId = req.user.cityId;
+    const userRole = req.user.role;
     const { category, status, page = 1, limit = 20, q } = req.query;
 
     // Enforce pagination limits
@@ -204,6 +232,7 @@ const getReports = async (req, res) => {
     if (!q) {
       const cacheKey = cacheService.generateKey('reports', {
         userCityId,
+        userRole,
         category,
         status,
         page: parsedPage,
@@ -221,8 +250,8 @@ const getReports = async (req, res) => {
       }
     }
 
-    // If user has no city, return empty results
-    if (!userCityId) {
+    // If user has no city and is not admin/authority, return empty results
+    if (!userCityId && userRole !== 'admin' && userRole !== 'authority') {
       return res.json({
         reports: [],
         pagination: {
@@ -238,11 +267,15 @@ const getReports = async (req, res) => {
     const skip = (parsedPage - 1) * parsedLimit;
     const take = parsedLimit;
 
-    // Build where clause
+    // Build where clause - admin and authority can see all cities
     const where = {
-      cityId: userCityId,
       deleted: false
     };
+
+    // Only filter by city for citizens
+    if (userRole === 'citizen' && userCityId) {
+      where.cityId = userCityId;
+    }
 
     if (category) {
       where.category = category;
@@ -312,7 +345,7 @@ const getReports = async (req, res) => {
       prisma.report.groupBy({
         by: ['category'],
         where: {
-          cityId: userCityId,
+          ...where, // Use the same where clause as the main query
           deleted: false
         },
         _count: {
@@ -342,6 +375,7 @@ const getReports = async (req, res) => {
     if (!q) {
       const cacheKey = cacheService.generateKey('reports', {
         userCityId,
+        userRole,
         category,
         status,
         page: parsedPage,
@@ -637,6 +671,13 @@ const addAuthorityUpdate = async (req, res) => {
     if (!text || text.trim().length === 0) {
       return res.status(400).json({
         error: 'Update text is required'
+      });
+    }
+
+    // If resolving the report, require resolution images
+    if (newStatus === 'RESOLVED' && resolutionImages.length === 0) {
+      return res.status(400).json({
+        error: 'Resolution images are required when marking a report as resolved'
       });
     }
 
@@ -1106,6 +1147,7 @@ const getNearbyReports = async (req, res) => {
   try {
     const { lat, lng, radius = 5 } = req.query; // radius in kilometers
     const userCityId = req.user.cityId;
+    const userRole = req.user.role;
 
     if (!lat || !lng) {
       return res.status(400).json({
@@ -1135,20 +1177,27 @@ const getNearbyReports = async (req, res) => {
     const minLng = longitude - lngDelta;
     const maxLng = longitude + lngDelta;
 
+    // Build where clause - admin and authority can see reports from all cities
+    const where = {
+      deleted: false,
+      latitude: {
+        gte: minLat,
+        lte: maxLat
+      },
+      longitude: {
+        gte: minLng,
+        lte: maxLng
+      },
+    };
+
+    // Only filter by city for citizens
+    if (userRole === 'citizen' && userCityId) {
+      where.cityId = userCityId;
+    }
+
     // Get reports in bounding box, then filter by actual distance
     const reports = await prisma.report.findMany({
-      where: {
-        cityId: userCityId,
-        deleted: false,
-        latitude: {
-          gte: minLat,
-          lte: maxLat
-        },
-        longitude: {
-          gte: minLng,
-          lte: maxLng
-        },
-      },
+      where,
       include: {
         author: {
           select: {
@@ -1287,6 +1336,364 @@ const checkDuplicateReport = async (req, res) => {
   }
 };
 
+// Verify report resolution (Citizens only)
+const verifyReport = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { verified, comment } = req.body;
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    // Only citizens can verify reports
+    if (userRole !== 'citizen') {
+      return res.status(403).json({
+        error: 'Only citizens can verify report resolutions'
+      });
+    }
+
+    // Check if report exists and is resolved
+    const report = await prisma.report.findFirst({
+      where: {
+        id,
+        status: 'RESOLVED',
+        deleted: false
+      }
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        error: 'Resolved report not found'
+      });
+    }
+
+    // Check if user has already verified this report
+    const existingVerification = await prisma.reportVerification.findUnique({
+      where: {
+        reportId_userId: {
+          reportId: id,
+          userId: userId
+        }
+      }
+    });
+
+    if (existingVerification) {
+      // Update existing verification
+      const updatedVerification = await prisma.reportVerification.update({
+        where: {
+          reportId_userId: {
+            reportId: id,
+            userId: userId
+          }
+        },
+        data: {
+          verified: verified,
+          comment: comment || null
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true
+            }
+          }
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Report verification updated successfully',
+        verification: updatedVerification
+      });
+    } else {
+      // Create new verification
+      const newVerification = await prisma.reportVerification.create({
+        data: {
+          reportId: id,
+          userId: userId,
+          verified: verified,
+          comment: comment || null
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true
+            }
+          }
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Report verification added successfully',
+        verification: newVerification
+      });
+    }
+
+  } catch (error) {
+    console.error('Verify report error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
+// Get report verification status
+const getReportVerification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // Get all verifications for this report
+    const verifications = await prisma.reportVerification.findMany({
+      where: {
+        reportId: id
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Get current user's verification if exists
+    const userVerification = verifications.find(v => v.userId === userId);
+
+    // Calculate verification stats
+    const totalVerifications = verifications.length;
+    const verifiedCount = verifications.filter(v => v.verified).length;
+    const notVerifiedCount = verifications.filter(v => !v.verified).length;
+
+    res.json({
+      success: true,
+      data: {
+        userVerification,
+        allVerifications: verifications,
+        stats: {
+          total: totalVerifications,
+          verified: verifiedCount,
+          notVerified: notVerifiedCount,
+          verificationRate: totalVerifications > 0 ? (verifiedCount / totalVerifications) * 100 : 0
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get report verification error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
+// Vote on report severity
+const voteOnReport = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { severity } = req.body;
+    const userId = req.user.id;
+
+    // Validate severity (1-10 scale)
+    if (!severity || severity < 1 || severity > 10) {
+      return res.status(400).json({
+        error: 'Severity must be between 1 and 10'
+      });
+    }
+
+    // Check if report exists
+    const report = await prisma.report.findUnique({
+      where: { id },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true
+          }
+        },
+        city: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (!report) {
+      return res.status(404).json({
+        error: 'Report not found'
+      });
+    }
+
+    // Check if user has already voted
+    const existingVote = await prisma.reportVote.findUnique({
+      where: {
+        reportId_userId: {
+          reportId: id,
+          userId: userId
+        }
+      }
+    });
+
+    if (existingVote) {
+      // Update existing vote
+      await prisma.reportVote.update({
+        where: {
+          reportId_userId: {
+            reportId: id,
+            userId: userId
+          }
+        },
+        data: { severity }
+      });
+
+      // Recalculate average severity and update report
+      const allVotes = await prisma.reportVote.findMany({
+        where: { reportId: id }
+      });
+
+      const averageSeverity = Math.round(
+        allVotes.reduce((sum, vote) => sum + vote.severity, 0) / allVotes.length
+      );
+
+      // Determine priority based on average severity and vote count
+      let priority = 'MEDIUM';
+      if (averageSeverity >= 8 || allVotes.length >= 10) {
+        priority = 'URGENT';
+      } else if (averageSeverity >= 6 || allVotes.length >= 5) {
+        priority = 'HIGH';
+      } else if (averageSeverity >= 4) {
+        priority = 'MEDIUM';
+      } else {
+        priority = 'LOW';
+      }
+
+      await prisma.report.update({
+        where: { id },
+        data: {
+          severity: averageSeverity,
+          voteCount: allVotes.length,
+          priority: priority
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Vote updated successfully',
+        data: {
+          averageSeverity,
+          voteCount: allVotes.length,
+          priority,
+          userVote: severity
+        }
+      });
+    } else {
+      // Create new vote
+      await prisma.reportVote.create({
+        data: {
+          reportId: id,
+          userId: userId,
+          severity
+        }
+      });
+
+      // Recalculate average severity and update report
+      const allVotes = await prisma.reportVote.findMany({
+        where: { reportId: id }
+      });
+
+      const averageSeverity = Math.round(
+        allVotes.reduce((sum, vote) => sum + vote.severity, 0) / allVotes.length
+      );
+
+      // Determine priority based on average severity and vote count
+      let priority = 'MEDIUM';
+      if (averageSeverity >= 8 || allVotes.length >= 10) {
+        priority = 'URGENT';
+      } else if (averageSeverity >= 6 || allVotes.length >= 5) {
+        priority = 'HIGH';
+      } else if (averageSeverity >= 4) {
+        priority = 'MEDIUM';
+      } else {
+        priority = 'LOW';
+      }
+
+      await prisma.report.update({
+        where: { id },
+        data: {
+          severity: averageSeverity,
+          voteCount: allVotes.length,
+          priority: priority
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Vote submitted successfully',
+        data: {
+          averageSeverity,
+          voteCount: allVotes.length,
+          priority,
+          userVote: severity
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error voting on report:', error);
+    res.status(500).json({
+      error: 'Failed to vote on report'
+    });
+  }
+};
+
+// Get user's vote on a report
+const getUserVote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const vote = await prisma.reportVote.findUnique({
+      where: {
+        reportId_userId: {
+          reportId: id,
+          userId: userId
+        }
+      }
+    });
+
+    if (!vote) {
+      return res.json({
+        success: true,
+        data: { hasVoted: false, severity: null }
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: { hasVoted: true, severity: vote.severity }
+    });
+  } catch (error) {
+    console.error('Error getting user vote:', error);
+    res.status(500).json({
+      error: 'Failed to get user vote'
+    });
+  }
+};
+
 module.exports = {
   createReport,
   getReports,
@@ -1296,5 +1703,9 @@ module.exports = {
   deleteReport,
   getReportTimeline,
   getNearbyReports,
-  checkDuplicateReport
+  checkDuplicateReport,
+  verifyReport,
+  getReportVerification,
+  voteOnReport,
+  getUserVote
 };

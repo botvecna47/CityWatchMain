@@ -136,7 +136,7 @@ export const NotificationProvider = ({ children }) => {
 
     const data = await fetchNotifications(1, 20, false);
     if (data) {
-      setNotifications(data.notifications);
+      setNotifications(data.notifications || data.data?.notifications || []);
     }
 
     // Also fetch unread count
@@ -160,7 +160,7 @@ export const NotificationProvider = ({ children }) => {
       // Also fetch new notifications to keep the list updated
       fetchNotifications(1, 20, false).then(data => {
         if (data) {
-          setNotifications(data.notifications);
+          setNotifications(data.notifications || data.data?.notifications || []);
         }
       });
     }, POLLING_INTERVAL);
@@ -174,13 +174,13 @@ export const NotificationProvider = ({ children }) => {
   }, [loadNotifications]);
 
   // Navigate to notification link
-  const navigateToNotification = useCallback((notification) => {
+  const navigateToNotification = useCallback((notification, navigate) => {
     if (notification.link) {
       // Mark as read first
       markAsRead(notification.id);
       
-      // Navigate to the link
-      window.location.href = notification.link;
+      // Navigate using React Router
+      navigate(notification.link);
     }
   }, [markAsRead]);
 

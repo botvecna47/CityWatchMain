@@ -15,5 +15,7 @@ router.post('/resend-otp', authController.resendOTP);
 // Protected routes
 router.get('/me', authMiddleware, authController.getMe);
 router.post('/logout', authMiddleware, authController.logout);
+router.post('/send-phone-verification', authMiddleware, authController.sendPhoneVerificationOTP);
+router.post('/verify-phone-otp', authMiddleware, authController.verifyPhoneOTP);
 
 module.exports = router;

@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { Link } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config/api';
-import AdminNavigation from '../components/AdminNavigation';
 import {
   Users,
   Shield,
@@ -47,6 +46,8 @@ const AdminUsers = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCityModal, setShowCityModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   // Fetch users
   const fetchUsers = async (page = 1) => {
@@ -157,6 +158,36 @@ const AdminUsers = () => {
     setTimeout(() => fetchUsers(1), 0);
   };
 
+  const handleChangeCity = (user) => {
+    setSelectedUser(user);
+    setShowCityModal(true);
+  };
+
+  const handleUpdateCity = async (cityId) => {
+    try {
+      const response = await makeAuthenticatedRequest(API_ENDPOINTS.ADMIN_USER_CITY(selectedUser.id), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cityId })
+      });
+
+      if (response.ok) {
+        showSuccess('User city updated successfully!');
+        setShowCityModal(false);
+        setSelectedUser(null);
+        fetchUsers(pagination.page);
+      } else {
+        const errorData = await response.json();
+        showError(errorData.error || 'Failed to update user city');
+      }
+    } catch (error) {
+      console.error('Error updating user city:', error);
+      showError('Failed to update user city');
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchCities();
@@ -186,10 +217,7 @@ const AdminUsers = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Admin Navigation */}
-      <AdminNavigation />
-
+    <>
       {/* Page Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -378,6 +406,13 @@ const AdminUsers = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex space-x-2">
                         <button
+                          onClick={() => handleChangeCity(userData)}
+                          className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200"
+                        >
+                          <Edit className="w-4 h-4 mr-1" />
+                          Change City
+                        </button>
+                        <button
                           onClick={() => toggleUserBan(userData.id)}
                           className={`inline-flex items-center px-3 py-1 rounded-md text-sm font-medium ${
                             userData.isBanned
@@ -451,7 +486,54 @@ const AdminUsers = () => {
           )}
         </div>
       </div>
-    </div>
+
+      {/* City Change Modal */}
+      {showCityModal && selectedUser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Change City for {selectedUser.username}
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Current city: {selectedUser.city?.name || 'No City'}
+              </p>
+              
+              <div className="space-y-3">
+                {cities.map((city) => (
+                  <button
+                    key={city.id}
+                    onClick={() => handleUpdateCity(city.id)}
+                    className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                      selectedUser.cityId === city.id
+                        ? 'border-primary-500 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="font-medium">{city.name}</div>
+                    {selectedUser.cityId === city.id && (
+                      <div className="text-sm text-primary-600">Current</div>
+                    )}
+                  </button>
+                ))}
+              </div>
+              
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowCityModal(false);
+                    setSelectedUser(null);
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

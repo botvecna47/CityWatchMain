@@ -10,7 +10,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
-    email: '',
+    emailOrUsername: '',
     password: ''
   });
   const [loading, setLoading] = useState(false);
@@ -127,14 +127,14 @@ const Login = () => {
           
           <div className="space-y-4">
             <Input
-              label="Email Address"
-              type="email"
-              name="email"
-              value={formData.email}
+              label="Email or Username"
+              type="text"
+              name="emailOrUsername"
+              value={formData.emailOrUsername}
               onChange={handleChange}
-              placeholder="Enter your email"
+              placeholder="Enter your email or username"
               required
-              autoComplete="email"
+              autoComplete="username"
             />
             <Input
               label="Password"

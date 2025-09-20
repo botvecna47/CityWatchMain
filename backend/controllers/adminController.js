@@ -1,4 +1,5 @@
 const prisma = require('../services/database');
+const { sendAuthorityCredentials } = require('../utils/mailer');
 
 // Get all users with pagination
 const getUsers = async (req, res) => {
@@ -573,11 +574,541 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+// Create authority account (admin only)
+const createAuthority = async (req, res) => {
+  try {
+    const {
+      username,
+      email,
+      password,
+      firstName,
+      lastName,
+      phone,
+      authorityType,
+      department,
+      badgeNumber,
+      cityId
+    } = req.body;
+
+    // Validation
+    if (!username || !email || !password || !firstName || !lastName || !phone || !authorityType || !department || !badgeNumber || !cityId) {
+      return res.status(400).json({
+        success: false,
+        error: 'All fields are required'
+      });
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username },
+          { email }
+        ]
+      }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username or email already exists'
+      });
+    }
+
+    // Check if badge number already exists for this authority type
+    const existingBadge = await prisma.user.findFirst({
+      where: {
+        badgeNumber,
+        authorityTypeId: authorityType
+      }
+    });
+
+    if (existingBadge) {
+      return res.status(400).json({
+        success: false,
+        error: 'Badge number already exists for this authority type'
+      });
+    }
+
+    // Verify city exists
+    const city = await prisma.city.findUnique({
+      where: { id: cityId }
+    });
+
+    if (!city) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid city selected'
+      });
+    }
+
+    // Hash password
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Create authority user
+    const authorityUser = await prisma.user.create({
+      data: {
+        username,
+        email,
+        password: hashedPassword,
+        firstName,
+        lastName,
+        phone,
+        role: 'authority',
+        authorityTypeId: authorityType,
+        department,
+        badgeNumber,
+        cityId: cityId,
+        isVerified: true, // Authority accounts are pre-verified
+        isBanned: false
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        role: true,
+        authorityTypeId: true,
+        authorityType: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            icon: true
+          }
+        },
+        department: true,
+        badgeNumber: true,
+        cityId: true,
+        isVerified: true,
+        isBanned: true,
+        createdAt: true
+      }
+    });
+
+    // Log the action
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        action: 'CREATE_AUTHORITY',
+        actionType: 'CREATE',
+        targetType: 'USER',
+        targetId: authorityUser.id,
+        performedById: req.user.id,
+        reason: `Created authority account for ${authorityUser.firstName} ${authorityUser.lastName} (${authorityUser.badgeNumber})`,
+        metadata: {
+          authorityType: authorityUser.authorityType?.name,
+          city: authorityUser.city?.name,
+          badgeNumber: authorityUser.badgeNumber,
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      }
+    });
+
+    // Send credentials email
+    try {
+      const emailResult = await sendAuthorityCredentials(
+        authorityUser.email,
+        authorityUser.firstName,
+        authorityUser.lastName,
+        authorityUser.username,
+        password, // Use the original password before hashing
+        authorityUser.authorityType?.displayName || 'Authority',
+        authorityUser.city?.name || 'Not assigned'
+      );
+
+      if (emailResult.success) {
+        console.log(`✅ Credentials email sent successfully to ${authorityUser.email}`);
+      } else {
+        console.warn(`⚠️ Failed to send credentials email to ${authorityUser.email}:`, emailResult.error);
+      }
+    } catch (emailError) {
+      console.error('❌ Error sending credentials email:', emailError);
+      // Don't fail the entire operation if email fails
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Authority account created successfully',
+      data: authorityUser
+    });
+
+  } catch (error) {
+    console.error('Error creating authority:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create authority account'
+    });
+  }
+};
+
+// Get all authority types
+const getAuthorityTypes = async (req, res) => {
+  try {
+    const authorityTypes = await prisma.authorityType.findMany({
+      orderBy: { displayName: 'asc' }
+    });
+
+    res.json({
+      success: true,
+      data: authorityTypes
+    });
+  } catch (error) {
+    console.error('Error fetching authority types:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch authority types'
+    });
+  }
+};
+
+// Create new authority type
+const createAuthorityType = async (req, res) => {
+  try {
+    const { name, displayName, icon, description } = req.body;
+
+    // Validation
+    if (!name || !displayName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Name and display name are required'
+      });
+    }
+
+    // Check if authority type already exists
+    const existingType = await prisma.authorityType.findFirst({
+      where: {
+        OR: [
+          { name },
+          { displayName }
+        ]
+      }
+    });
+
+    if (existingType) {
+      return res.status(400).json({
+        success: false,
+        error: 'Authority type with this name or display name already exists'
+      });
+    }
+
+    // Create authority type
+    const authorityType = await prisma.authorityType.create({
+      data: {
+        name,
+        displayName,
+        icon,
+        description
+      }
+    });
+
+    // Log the action
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        action: 'CREATE_AUTHORITY_TYPE',
+        actionType: 'CREATE',
+        targetType: 'AUTHORITY_TYPE',
+        targetId: authorityType.id,
+        performedById: req.user.id,
+        reason: `Created authority type: ${authorityType.displayName}`,
+        metadata: {
+          authorityTypeName: authorityType.name,
+          displayName: authorityType.displayName,
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      }
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Authority type created successfully',
+      data: authorityType
+    });
+
+  } catch (error) {
+    console.error('Error creating authority type:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create authority type'
+    });
+  }
+};
+
+// Update authority type
+const updateAuthorityType = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, displayName, icon, description, isActive } = req.body;
+
+    // Check if authority type exists
+    const existingType = await prisma.authorityType.findUnique({
+      where: { id }
+    });
+
+    if (!existingType) {
+      return res.status(404).json({
+        success: false,
+        error: 'Authority type not found'
+      });
+    }
+
+    // Check for duplicate names (excluding current record)
+    if (name || displayName) {
+      const duplicateType = await prisma.authorityType.findFirst({
+        where: {
+          AND: [
+            { id: { not: id } },
+            {
+              OR: [
+                name ? { name } : {},
+                displayName ? { displayName } : {}
+              ]
+            }
+          ]
+        }
+      });
+
+      if (duplicateType) {
+        return res.status(400).json({
+          success: false,
+          error: 'Authority type with this name or display name already exists'
+        });
+      }
+    }
+
+    // Update authority type
+    const updatedType = await prisma.authorityType.update({
+      where: { id },
+      data: {
+        ...(name && { name }),
+        ...(displayName && { displayName }),
+        ...(icon !== undefined && { icon }),
+        ...(description !== undefined && { description }),
+        ...(isActive !== undefined && { isActive })
+      }
+    });
+
+    // Log the action
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        action: 'UPDATE_AUTHORITY_TYPE',
+        actionType: 'UPDATE',
+        targetType: 'AUTHORITY_TYPE',
+        targetId: updatedType.id,
+        performedById: req.user.id,
+        reason: `Updated authority type: ${updatedType.displayName}`,
+        metadata: {
+          authorityTypeName: updatedType.name,
+          displayName: updatedType.displayName,
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Authority type updated successfully',
+      data: updatedType
+    });
+
+  } catch (error) {
+    console.error('Error updating authority type:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update authority type'
+    });
+  }
+};
+
+// Delete authority type
+const deleteAuthorityType = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if authority type exists
+    const existingType = await prisma.authorityType.findUnique({
+      where: { id },
+      include: {
+        users: true
+      }
+    });
+
+    if (!existingType) {
+      return res.status(404).json({
+        success: false,
+        error: 'Authority type not found'
+      });
+    }
+
+    // Check if any users are using this authority type
+    if (existingType.users.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot delete authority type that is in use by existing users'
+      });
+    }
+
+    // Delete authority type
+    await prisma.authorityType.delete({
+      where: { id }
+    });
+
+    // Log the action
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        action: 'DELETE_AUTHORITY_TYPE',
+        actionType: 'DELETE',
+        targetType: 'AUTHORITY_TYPE',
+        targetId: existingType.id,
+        performedById: req.user.id,
+        reason: `Deleted authority type: ${existingType.displayName}`,
+        metadata: {
+          authorityTypeName: existingType.name,
+          displayName: existingType.displayName,
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Authority type deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting authority type:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete authority type'
+    });
+  }
+};
+
+// Update user city
+const updateUserCity = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { cityId } = req.body;
+
+    // Validation
+    if (!cityId) {
+      return res.status(400).json({
+        success: false,
+        error: 'City ID is required'
+      });
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        city: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Verify city exists
+    const city = await prisma.city.findUnique({
+      where: { id: cityId }
+    });
+
+    if (!city) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid city selected'
+      });
+    }
+
+    // Update user city
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        cityId: cityId
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        cityId: true,
+        city: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        updatedAt: true
+      }
+    });
+
+    // Log the action
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user.id,
+        actorRole: req.user.role,
+        action: 'UPDATE_USER_CITY',
+        actionType: 'UPDATE',
+        targetType: 'USER',
+        targetId: user.id,
+        performedById: req.user.id,
+        reason: `Changed city for user ${user.username} from ${user.city?.name || 'None'} to ${city.name}`,
+        metadata: {
+          previousCity: user.city?.name || 'None',
+          newCity: city.name,
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent')
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'User city updated successfully',
+      data: updatedUser
+    });
+
+  } catch (error) {
+    console.error('Error updating user city:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update user city'
+    });
+  }
+};
+
 module.exports = {
   getUsers,
   updateUserRole,
   toggleUserBan,
+  updateUserCity,
   createAdmin,
+  createAuthority,
+  getAuthorityTypes,
+  createAuthorityType,
+  updateAuthorityType,
+  deleteAuthorityType,
   getReports,
   deleteReport,
   restoreReport,

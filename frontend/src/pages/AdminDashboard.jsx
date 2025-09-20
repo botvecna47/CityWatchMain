@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { API_ENDPOINTS } from '../config/api';
 import AnalyticsCharts from '../components/charts/AnalyticsCharts';
-import AdminNavigation from '../components/AdminNavigation';
 import {
   Users,
   FileText,
@@ -32,12 +31,17 @@ const AdminDashboard = () => {
     try {
       setLoading(true);
       console.log('📊 Fetching admin dashboard data for user:', user.username);
+      console.log('📊 API Endpoint:', API_ENDPOINTS.ADMIN_DASHBOARD);
 
       // Fetch real dashboard stats from API
       const response = await makeAuthenticatedRequest(API_ENDPOINTS.ADMIN_DASHBOARD);
       
+      console.log('📊 Response status:', response.status);
+      console.log('📊 Response headers:', response.headers);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('📊 Dashboard data received:', data);
         setStats({
           totalUsers: data.stats.totalUsers,
           totalReports: data.stats.totalReports,
@@ -45,12 +49,14 @@ const AdminDashboard = () => {
           activeReports: data.stats.openReports
         });
       } else {
-        throw new Error('Failed to fetch dashboard data');
+        const errorData = await response.json();
+        console.error('📊 Dashboard error response:', errorData);
+        throw new Error(`Failed to fetch dashboard data: ${errorData.error || 'Unknown error'}`);
       }
 
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      showError('Failed to load dashboard data');
+      console.error('📊 Error fetching dashboard data:', error);
+      showError(`Failed to load dashboard data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -72,11 +78,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Admin Navigation */}
-      <AdminNavigation />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
@@ -132,7 +134,6 @@ const AdminDashboard = () => {
         <div className="mb-8">
           <AnalyticsCharts />
         </div>
-      </div>
     </div>
   );
 };

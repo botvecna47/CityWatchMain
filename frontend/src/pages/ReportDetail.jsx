@@ -22,6 +22,12 @@ const ReportDetail = () => {
   const [newComment, setNewComment] = useState('');
   const [addingComment, setAddingComment] = useState(false);
   const [activeTab, setActiveTab] = useState('details'); // 'details' or 'timeline'
+  const [verification, setVerification] = useState({
+    verified: null,
+    comment: ''
+  });
+  const [verifying, setVerifying] = useState(false);
+  const [verificationStats, setVerificationStats] = useState(null);
 
   useEffect(() => {
     const fetchReport = async () => {
@@ -52,7 +58,8 @@ const ReportDetail = () => {
 
     fetchReport();
     fetchTimeline();
-  }, [id, makeAuthenticatedRequest, user]);
+    fetchVerificationStats();
+}, [id, makeAuthenticatedRequest, user]);
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
@@ -122,6 +129,57 @@ const ReportDetail = () => {
       setError('Failed to close report');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleVerification = async (e) => {
+    e.preventDefault();
+    if (verification.verified === null) return;
+
+    setVerifying(true);
+    try {
+      const response = await makeAuthenticatedRequest(API_ENDPOINTS.REPORTS_VERIFY(id), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          verified: verification.verified,
+          comment: verification.comment
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setVerification({ verified: null, comment: '' });
+        // Refresh verification stats
+        fetchVerificationStats();
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error);
+      }
+    } catch (err) {
+      setError('Failed to submit verification');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const fetchVerificationStats = async () => {
+    try {
+      const response = await makeAuthenticatedRequest(API_ENDPOINTS.REPORTS_VERIFICATION(id));
+      if (response.ok) {
+        const data = await response.json();
+        setVerificationStats(data.data.stats);
+        if (data.data.userVerification) {
+          setVerification({
+            verified: data.data.userVerification.verified,
+            comment: data.data.userVerification.comment || ''
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch verification stats:', err);
     }
   };
 
@@ -526,6 +584,101 @@ const ReportDetail = () => {
                 </div>
               )}
 
+              {/* Report Verification (for resolved reports) */}
+              {report.status === 'RESOLVED' && (
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">Report Verification</h2>
+                  <p className="text-gray-600 mb-4">
+                    Help verify if this issue has been properly resolved by reviewing the authority's work and resolution images.
+                  </p>
+                  
+                  {/* Verification Form (Citizens only) */}
+                  {user && user.role === 'citizen' && (
+                    <div className="border-t pt-4">
+                      <h3 className="text-lg font-medium text-gray-900 mb-3">Your Verification</h3>
+                      <form onSubmit={handleVerification} className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Has this issue been properly resolved? *
+                          </label>
+                          <div className="space-y-2">
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="verified"
+                                value="true"
+                                checked={verification.verified === true}
+                                onChange={(e) => setVerification({...verification, verified: e.target.value === 'true'})}
+                                className="mr-2"
+                              />
+                              <span className="text-green-700">✅ Yes, the issue has been resolved</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="verified"
+                                value="false"
+                                checked={verification.verified === false}
+                                onChange={(e) => setVerification({...verification, verified: e.target.value === 'false'})}
+                                className="mr-2"
+                              />
+                              <span className="text-red-700">❌ No, the issue is not resolved</span>
+                            </label>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-2">
+                            Additional Comments (Optional)
+                          </label>
+                          <textarea
+                            id="comment"
+                            value={verification.comment}
+                            onChange={(e) => setVerification({...verification, comment: e.target.value})}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Share any additional observations about the resolution..."
+                          />
+                        </div>
+                        
+                        <Button
+                          type="submit"
+                          loading={verifying}
+                          disabled={verification.verified === null}
+                        >
+                          {verifying ? 'Submitting...' : 'Submit Verification'}
+                        </Button>
+                      </form>
+                    </div>
+                  )}
+                  
+                  {/* Verification Stats */}
+                  {verificationStats && (
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-lg font-medium text-gray-900 mb-3">Community Verification</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">{verificationStats.total}</div>
+                          <div className="text-sm text-gray-600">Total Verifications</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">{verificationStats.verified}</div>
+                          <div className="text-sm text-gray-600">Verified</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-red-600">{verificationStats.notVerified}</div>
+                          <div className="text-sm text-gray-600">Not Verified</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-600">{Math.round(verificationStats.verificationRate)}%</div>
+                          <div className="text-sm text-gray-600">Verification Rate</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Authority Update Form */}
               {canAddAuthorityUpdate && (
                 <div className="bg-white rounded-lg shadow-md p-6">
@@ -568,7 +721,7 @@ const ReportDetail = () => {
                     {/* Resolution Images Upload */}
                     <div>
                       <label htmlFor="resolutionImages" className="block text-sm font-medium text-gray-700 mb-2">
-                        Resolution Images (Optional)
+                        Resolution Images {authorityUpdate.newStatus === 'RESOLVED' ? '*' : '(Optional)'}
                       </label>
                       <input
                         type="file"
@@ -580,6 +733,9 @@ const ReportDetail = () => {
                       />
                       <p className="text-xs text-gray-500 mt-1">
                         Upload images or PDFs to show proof of resolution. Max 5 files, 5MB each.
+                        {authorityUpdate.newStatus === 'RESOLVED' && (
+                          <span className="text-red-600 font-medium"> Required when resolving reports.</span>
+                        )}
                       </p>
                       
                       {/* Show selected files */}
@@ -606,7 +762,7 @@ const ReportDetail = () => {
                     <Button
                       type="submit"
                       loading={updating}
-                      disabled={!authorityUpdate.text.trim()}
+                      disabled={!authorityUpdate.text.trim() || (authorityUpdate.newStatus === 'RESOLVED' && resolutionImages.length === 0)}
                     >
                       {updating ? 'Adding Update...' : 'Add Update'}
                     </Button>

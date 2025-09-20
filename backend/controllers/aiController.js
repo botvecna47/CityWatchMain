@@ -1,5 +1,6 @@
 const aiService = require('../services/aiService');
 const { createErrorResponse, createSuccessResponse } = require('../middleware/errorHandler');
+const prisma = require('../services/database');
 
 // Chat with AI assistant
 const chat = async (req, res) => {
@@ -136,10 +137,72 @@ const getStatus = async (req, res) => {
   }
 };
 
+// Analyze report content to determine appropriate authority type
+const analyzeReportAuthority = async (req, res) => {
+  try {
+    const { title, description, category } = req.body;
+
+    // Validation
+    if (!title || !description || !category) {
+      return res.status(400).json(
+        createErrorResponse('Title, description, and category are required', 'VALIDATION_ERROR', 400)
+      );
+    }
+
+    // Validate category
+    const validCategories = ['GARBAGE', 'ROAD', 'WATER', 'POWER', 'OTHER'];
+    if (!validCategories.includes(category)) {
+      return res.status(400).json(
+        createErrorResponse('Invalid category', 'VALIDATION_ERROR', 400)
+      );
+    }
+
+    console.log(`🤖 AI Analysis - Title: "${title}", Category: ${category}`);
+
+    // Analyze the report content
+    const analysis = await aiService.analyzeReportAuthority(title, description, category);
+
+    // Get the authority type from database
+    const authorityType = await prisma.authorityType.findFirst({
+      where: {
+        displayName: analysis.authorityType
+      },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        description: true,
+        icon: true
+      }
+    });
+
+    if (!authorityType) {
+      return res.status(404).json(
+        createErrorResponse('Authority type not found', 'NOT_FOUND', 404)
+      );
+    }
+
+    res.json(createSuccessResponse({
+      analysis: {
+        ...analysis,
+        authorityTypeId: authorityType.id,
+        authorityTypeDetails: authorityType
+      }
+    }));
+
+  } catch (error) {
+    console.error('AI Analysis error:', error);
+    res.status(500).json(
+      createErrorResponse('Failed to analyze report authority', 'INTERNAL_ERROR', 500)
+    );
+  }
+};
+
 module.exports = {
   chat,
   getCityUpdates,
   getSuggestions,
   getHelp,
-  getStatus
+  getStatus,
+  analyzeReportAuthority
 };

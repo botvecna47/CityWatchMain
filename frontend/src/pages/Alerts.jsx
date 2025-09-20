@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { API_ENDPOINTS } from '../config/api';
 
 const Alerts = () => {
   const { user, makeAuthenticatedRequest } = useAuth();
@@ -19,10 +20,16 @@ const Alerts = () => {
   useEffect(() => {
     const fetchAlerts = async () => {
       try {
-        const response = await makeAuthenticatedRequest('http://localhost:5000/api/alerts/my/alerts');
+        // For authorities/admins, get their own alerts
+        // For citizens, get all alerts in their city
+        const endpoint = ['authority', 'admin'].includes(user.role) 
+          ? 'http://localhost:5000/api/alerts/my/alerts'
+          : `${API_ENDPOINTS.ALERTS}`;
+          
+        const response = await makeAuthenticatedRequest(endpoint);
         if (response.ok) {
           const data = await response.json();
-          setAlerts(data.alerts);
+          setAlerts(data.alerts || []);
         }
       } catch (error) {
         console.error('Error fetching alerts:', error);
@@ -32,7 +39,7 @@ const Alerts = () => {
       }
     };
 
-    if (user && ['authority', 'admin'].includes(user.role)) {
+    if (user) {
       fetchAlerts();
     }
   }, [user, makeAuthenticatedRequest, showError]);
